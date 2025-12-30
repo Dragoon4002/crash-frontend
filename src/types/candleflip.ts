@@ -1,6 +1,7 @@
 export type TrendType = 'bullish' | 'bearish';
 export type GameStatus = 'waiting' | 'countdown' | 'running' | 'finished';
 export type WinnerType = 'RED' | 'GREEN' | null;
+export type SideType = 'bull' | 'bear';
 
 export interface CandleflipBet {
   amount: number;
@@ -14,11 +15,15 @@ export interface PriceUpdate {
 }
 
 export interface CandleflipGameState {
-  roomId: string;
+  batchId: string;
+  roomNumber: number;
+  playerSide: SideType;
+  aiSide: SideType;
+  playerWon?: boolean;
   gameId: string;
   status: GameStatus;
   serverSeedHash: string;
-  serverSeed?: string; // Only revealed after game ends
+  serverSeed?: string; // Only revealed after batch ends
   startingPrice: number;
   currentPrice: number;
   finalPrice?: number;
@@ -38,18 +43,49 @@ export interface CandleflipGameState {
 }
 
 export interface CandleflipRoomMessage {
-  type: 'game_start' | 'countdown' | 'price_update' | 'game_end';
+  type: 'batch_created' | 'batch_start' | 'room_start' | 'price_update' | 'room_end' | 'batch_end' | 'payout_failed' | 'error';
+  batchId?: string;
   data: {
-    roomId: string;
-    gameId?: string;
+    batchId?: string;
+    roomNumber?: number;
+    playerAddress?: string;
+    totalRooms?: number;
+    amountPerRoom?: string;
+    playerSide?: SideType;
+    aiSide?: SideType;
     serverSeedHash?: string;
     serverSeed?: string;
-    status?: GameStatus;
-    countdown?: number;
     tick?: number;
     price?: number;
+    totalTicks?: number;
     finalPrice?: number;
-    winner?: WinnerType;
-    priceHistory?: number[];
+    winner?: SideType;
+    playerWon?: boolean;
+    wonRooms?: number;
+    error?: string;
   };
+  error?: string;
+}
+
+// Batch info for tracking multiple rooms
+export interface CandleflipBatch {
+  batchId: string;
+  playerAddress: string;
+  totalRooms: number;
+  amountPerRoom: string;
+  playerSide: SideType;
+  aiSide: SideType;
+  serverSeedHash: string;
+  serverSeed?: string;
+  wonRooms?: number;
+  status: 'waiting' | 'running' | 'completed' | 'paid';
+  rooms: CandleflipRoom[];
+}
+
+export interface CandleflipRoom {
+  roomNumber: number;
+  status: GameStatus;
+  finalPrice?: number;
+  winner?: SideType;
+  playerWon?: boolean;
 }

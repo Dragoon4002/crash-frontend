@@ -1,9 +1,67 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { CandleflipGameState, CandleflipRoomMessage, GameStatus, WinnerType } from '@/types/candleflip';
+import { CandleflipGameState, GameStatus } from '@/types/candleflip';
 
-export function useCandleflipRoom(wsUrl: string, roomId: string) {
+interface BatchStartData {
+  batchId: string;
+  playerAddress: string;
+  totalRooms: number;
+  amountPerRoom: string;
+  playerSide: 'bull' | 'bear';
+  aiSide: 'bull' | 'bear';
+  serverSeedHash: string;
+}
+
+interface RoomStartData {
+  batchId: string;
+  roomNumber: number;
+}
+
+interface PriceUpdateData {
+  batchId: string;
+  roomNumber: number;
+  tick: number;
+  price: number;
+  totalTicks: number;
+}
+
+interface RoomEndData {
+  batchId: string;
+  roomNumber: number;
+  finalPrice: number;
+  winner: 'bull' | 'bear';
+  playerWon: boolean;
+}
+
+interface BatchEndData {
+  batchId: string;
+  totalRooms: number;
+  wonRooms: number;
+  serverSeed: string;
+}
+
+interface PayoutFailedData {
+  batchId: string;
+  error: string;
+}
+
+interface BatchCreatedData {
+  batchId: string;
+}
+
+interface CandleflipMessage {
+  type: 'batch_created' | 'batch_start' | 'room_start' | 'price_update' | 'room_end' | 'batch_end' | 'payout_failed' | 'error';
+  batchId?: string;
+  data?: BatchStartData | RoomStartData | PriceUpdateData | RoomEndData | BatchEndData | PayoutFailedData | BatchCreatedData;
+  error?: string;
+}
+
+export function useCandleflipRoom(wsUrl: string, batchId: string, roomNumber: number) {
   const [gameState, setGameState] = useState<CandleflipGameState>({
-    roomId,
+    batchId: batchId,
+    roomNumber: roomNumber,
+    playerSide: 'bull',
+    aiSide: 'bear',
+    playerWon: false,
     gameId: '',
     status: 'waiting',
     serverSeedHash: '',
@@ -19,11 +77,10 @@ export function useCandleflipRoom(wsUrl: string, roomId: string) {
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
-  const isFinishedRef = useRef<boolean>(false); // Track if game is finished (prevents stale closure)
-  const isMountedRef = useRef<boolean>(true); // Track if component is mounted
+  const isFinishedRef = useRef<boolean>(false);
+  const isMountedRef = useRef<boolean>(true);
 
   const connect = useCallback(() => {
-    // Don't connect if component is unmounted
     if (!isMountedRef.current) {
       return;
     }
@@ -31,128 +88,159 @@ export function useCandleflipRoom(wsUrl: string, roomId: string) {
     if (wsRef.current) {
       const state = wsRef.current.readyState;
       if (state === WebSocket.OPEN || state === WebSocket.CONNECTING) {
-        console.log(`⚠️ Room ${roomId} already connected/connecting`);
+        console.log(`⚠️ CandleFlip already connected/connecting`);
         return;
       }
     }
 
-    const fullUrl = `${wsUrl}?roomId=${roomId}`;
-    console.log(`🔌 Connecting to Candleflip room ${roomId}:`, fullUrl);
+    console.log(`🔌 Connecting to CandleFlip WebSocket for batch ${batchId}, room ${roomNumber}`);
 
-    const ws = new WebSocket(fullUrl);
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log(`✅ Connected to Candleflip room ${roomId}`);
+      console.log(`✅ Connected to CandleFlip WebSocket`);
       setGameState(prev => ({ ...prev, status: 'waiting' }));
     };
 
     ws.onmessage = (event) => {
       try {
-        const message: CandleflipRoomMessage = JSON.parse(event.data);
+        const message: CandleflipMessage = JSON.parse(event.data);
 
         switch (message.type) {
-          case 'game_start':
-            console.log(`🎮 Room ${roomId} - Game starting:`, message.data.gameId);
-            isFinishedRef.current = false; // Reset finished flag for new game
-            setGameState(prev => ({
-              ...prev,
-              gameId: message.data.gameId || '',
-              serverSeedHash: message.data.serverSeedHash || '',
-              startingPrice: 1.0,
-              currentPrice: 1.0,
-              priceHistory: [1.0],
-              tick: 0,
-              status: 'waiting',
-              winner: undefined,
-              finalPrice: undefined,
-              serverSeed: undefined,
-            }));
+          case 'batch_created':
+            console.log('📦 Batch created:', (message as any).batchId);
             break;
 
-          case 'countdown':
-            const countdownData = message.data;
-            const countdownNum = countdownData.countdown || 0;
-            const textMessage = (countdownData as any).message;
+          case 'batch_start':
+            const batchStartData = message.data as BatchStartData;
+            // Only update if this is our batch
+            if (batchStartData.batchId === batchId) {
+              console.log(`🎮 Batch ${batchId} started`);
+              setGameState(prev => ({
+                ...prev,
+                batchId: batchStartData.batchId,
+                playerSide: batchStartData.playerSide,
+                aiSide: batchStartData.aiSide,
+                serverSeedHash: batchStartData.serverSeedHash,
+                status: 'waiting',
+              }));
+            }
+            break;
 
-            setCountdownMessage(textMessage || '');
-            setGameState(prev => ({
-              ...prev,
-              status: 'countdown',
-              countdown: textMessage ? 0 : countdownNum,
-            }));
+          case 'room_start':
+            const roomStartData = message.data as RoomStartData;
+            // Only handle if this is our room
+            if (roomStartData.batchId === batchId && roomStartData.roomNumber === roomNumber) {
+              console.log(`🚀 Room ${roomNumber} started`);
+              isFinishedRef.current = false;
+              setGameState(prev => ({
+                ...prev,
+                status: 'running',
+                currentPrice: 1.0,
+                priceHistory: [1.0],
+                tick: 0,
+              }));
+            }
             break;
 
           case 'price_update':
-            setGameState(prev => ({
-              ...prev,
-              status: 'running',
-              tick: message.data.tick || 0,
-              currentPrice: message.data.price || prev.currentPrice,
-              priceHistory: [...prev.priceHistory, message.data.price || prev.currentPrice],
-            }));
+            const priceUpdateData = message.data as PriceUpdateData;
+            // Only handle if this is our room
+            if (priceUpdateData.batchId === batchId && priceUpdateData.roomNumber === roomNumber) {
+              setGameState(prev => ({
+                ...prev,
+                status: 'running',
+                tick: priceUpdateData.tick,
+                currentPrice: priceUpdateData.price,
+                priceHistory: [...prev.priceHistory, priceUpdateData.price],
+                totalTicks: priceUpdateData.totalTicks,
+              }));
+            }
             break;
 
-          case 'game_end':
-            console.log(`🏁 Room ${roomId} - Game ended. Winner:`, message.data.winner);
-            isFinishedRef.current = true; // Set ref immediately to prevent reconnection
-            setGameState(prev => ({
-              ...prev,
-              status: 'finished',
-              finalPrice: message.data.finalPrice,
-              winner: message.data.winner as WinnerType,
-              serverSeed: message.data.serverSeed,
-              priceHistory: message.data.priceHistory || prev.priceHistory,
-            }));
+          case 'room_end':
+            const roomEndData = message.data as RoomEndData;
+            // Only handle if this is our room
+            if (roomEndData.batchId === batchId && roomEndData.roomNumber === roomNumber) {
+              console.log(`🏁 Room ${roomNumber} ended. Winner: ${roomEndData.winner}, Player won: ${roomEndData.playerWon}`);
+              isFinishedRef.current = true;
+              setGameState(prev => ({
+                ...prev,
+                status: 'finished',
+                finalPrice: roomEndData.finalPrice,
+                winner: roomEndData.winner === 'bull' ? 'GREEN' : 'RED',
+                playerWon: roomEndData.playerWon,
+              }));
+            }
             break;
+
+          case 'batch_end':
+            const batchEndData = message.data as BatchEndData;
+            // Reveal server seed for our batch
+            if (batchEndData.batchId === batchId) {
+              console.log(`📝 Batch ${batchId} ended. Server seed revealed`);
+              setGameState(prev => ({
+                ...prev,
+                serverSeed: batchEndData.serverSeed,
+              }));
+            }
+            break;
+
+          case 'payout_failed':
+            const payoutFailedData = message.data as PayoutFailedData;
+            if (payoutFailedData.batchId === batchId) {
+              console.error('❌ Payout failed:', payoutFailedData.error);
+            }
+            break;
+
+          case 'error':
+            console.error('❌ CandleFlip error:', message.error);
+            break;
+
+          default:
+            console.log('📨 Unhandled CandleFlip message:', message.type);
         }
       } catch (error) {
-        console.error(`❌ Room ${roomId} - Error parsing message:`, error);
+        console.error(`❌ Error parsing CandleFlip message:`, error);
       }
     };
 
     ws.onerror = (error) => {
-      console.error(`❌ Room ${roomId} WebSocket error:`, error);
+      console.error(`❌ CandleFlip WebSocket error:`, error);
       setGameState(prev => ({ ...prev, status: 'waiting' }));
     };
 
     ws.onclose = (event) => {
-      console.log(`🔌 Room ${roomId} WebSocket closed (code: ${event.code}, reason: ${event.reason})`);
+      console.log(`🔌 CandleFlip WebSocket closed (code: ${event.code})`);
       wsRef.current = null;
 
-      // Don't reconnect if component is unmounted
       if (!isMountedRef.current) {
-        console.log(`✅ Room ${roomId} component unmounted, not reconnecting`);
+        console.log(`✅ Component unmounted, not reconnecting`);
         return;
       }
 
-      // Don't reconnect if game is finished (using ref to avoid stale closure)
       if (isFinishedRef.current) {
-        console.log(`✅ Room ${roomId} game finished, not reconnecting`);
+        console.log(`✅ Game finished, not reconnecting`);
         return;
       }
 
-      // Only reconnect if it wasn't a normal closure AND game not finished
       if (event.code !== 1000) {
-        console.log(`🔄 Room ${roomId} attempting reconnect...`);
+        console.log(`🔄 Attempting reconnect...`);
         reconnectTimeoutRef.current = setTimeout(() => {
           connect();
         }, 2000);
-      } else {
-        console.log(`✅ Room ${roomId} closed normally`);
       }
     };
-  }, [wsUrl, roomId]);
+  }, [wsUrl, batchId, roomNumber]);
 
   useEffect(() => {
     isMountedRef.current = true;
     connect();
 
     return () => {
-      // Mark as unmounted to prevent reconnections
       isMountedRef.current = false;
 
-      // Cleanup
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
       }
@@ -161,8 +249,7 @@ export function useCandleflipRoom(wsUrl: string, roomId: string) {
         wsRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wsUrl, roomId]); // Only reconnect when URL or roomId changes, NOT when connect callback changes
+  }, [connect]);
 
   return { ...gameState, countdownMessage };
 }

@@ -6,7 +6,7 @@
 
 export const GAME_HOUSE_V2_CONFIG = {
   // Contract address on Mantle Sepolia (Updated with gasless cashout support)
-  address: '0x43a01A18a2C947179595A7b17bDCc3d88ecF04F5' as const,
+  address: process.env.CONTRACT_ADDRESS || "0x80Fc067cDDCDE4a78199a7A6751F2f629654b93A" as const, //Address updated
 
   // Network configuration
   network: {

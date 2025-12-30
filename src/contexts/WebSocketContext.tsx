@@ -17,6 +17,7 @@ interface WebSocketContextType {
   sendChatMessage: (message: string) => void;
   createRoom: (roomId: string, gameType: string, betAmount: number, trend?: string, creatorId?: string, botNameSeed?: string, contractGameId?: string, roomsCount?: number) => void;
   sendMessage: (type: string, data: any) => void;
+  createCandleflipBatch: (address: string, roomCount: number, amountPerRoom: string, side: 'bull' | 'bear') => void;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);

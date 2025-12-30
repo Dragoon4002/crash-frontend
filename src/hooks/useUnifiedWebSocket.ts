@@ -188,7 +188,7 @@ export function useUnifiedWebSocket(wsUrl: string) {
           type: 'unsubscribe',
           data: { channel },
         }));
-        console.log('📴 Unsubscribed from:', channel);
+        console.log('🔴 Unsubscribed from:', channel);
       }
     } else {
       subscriptionsRef.current.set(channel, count - 1);
@@ -210,6 +210,27 @@ export function useUnifiedWebSocket(wsUrl: string) {
   const createRoom = useCallback((roomId: string, gameType: string, betAmount: number, trend?: string, creatorId?: string, botNameSeed?: string, contractGameId?: string, roomsCount?: number) => {
     sendMessage('create_room', { roomId, gameType, betAmount, trend, creatorId, botNameSeed, contractGameId, roomsCount });
   }, [sendMessage]);
+
+  // NEW: Create CandleFlip batch
+  const createCandleflipBatch = useCallback((
+    address: string,
+    roomCount: number,
+    amountPerRoom: string, // wei string
+    side: 'bull' | 'bear'
+  ) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        type: 'create_batch',
+        address,
+        roomCount,
+        amountPerRoom,
+        side,
+      }));
+      console.log('🎲 Creating CandleFlip batch:', { address, roomCount, amountPerRoom, side });
+    } else {
+      console.error('❌ WebSocket not connected, cannot create batch');
+    }
+  }, []);
 
   const disconnect = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -234,5 +255,6 @@ export function useUnifiedWebSocket(wsUrl: string) {
     sendChatMessage,
     createRoom,
     sendMessage,
+    createCandleflipBatch, // NEW
   };
 }

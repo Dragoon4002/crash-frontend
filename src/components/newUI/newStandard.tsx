@@ -1,12 +1,9 @@
 'use client'
 
 import { useCrashGame } from '@/hooks/useCrashGame';
-import { TradingChart } from '@/components/trading/TradingChart';
 import { TradingPanel } from '@/components/trading/TradingPanel';
-import { GameHistory } from '@/components/crash/GameHistory';
 import { ActiveBettorsList } from '@/components/crash/ActiveBettorsList';
 import { useWebSocket } from '@/contexts/WebSocketContext';
-import { CandlestickCanvas } from '../crash/CandlestickCanvas';
 import { LiveCandlestickChart } from '../trading/LiveCandlestickChart';
 import { CandlestickGameHistory } from '../crash/CandlestickGameHistory';
 
@@ -18,28 +15,6 @@ export function NewStandardMode() {
   const { crashHistory, activeBettors } = useWebSocket();
 
   return (
-    // <div className="flex flex-1 overflow-hidden relative">
-    //   {/* Main Content - Original UI */}
-    //   <div className="flex-1 overflow-y-auto">
-    //     <div className="p-6 space-y-6 mx-auto">
-    //       {/* Chart */}
-    //       <TradingChart />
-
-    //       {/* Game History - replaces latest candles display */}
-    //       <GameHistory history={crashHistory} />
-
-    //       {/* Trading Panel */}
-    //       <TradingPanel
-    //         gameId={gameId}
-    //         currentMultiplier={multiplier}
-    //         status={status}
-    //         isRugged={rugged}
-    //       />
-
-          
-    //     </div>
-    //   </div>
-    // </div>
     <div className='w-[calc(100vw-20rem)] overflow-hidden border-t border-white/15'>
       <section>
         <CandlestickGameHistory history={crashHistory || []} />

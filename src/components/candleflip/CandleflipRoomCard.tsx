@@ -5,7 +5,6 @@ import { useCandleflipRoom } from '@/hooks/useCandleflipRoom';
 import { CandleflipCanvas } from './CandleflipCanvas';
 import { TrendType } from '@/types/candleflip';
 import { Shield } from 'lucide-react';
-import { getBotForRoom } from '@/utils/botNames';
 
 interface CandleflipRoomCardProps {
   roomId: string;
@@ -17,9 +16,6 @@ interface CandleflipRoomCardProps {
 
 export function CandleflipRoomCard({ roomId, betAmount, trend, onVerify, onFinished }: CandleflipRoomCardProps) {
   const { countdownMessage, ...gameState } = useCandleflipRoom('ws://localhost:8080/candleflip', roomId);
-
-  // Get bot opponent for this room (consistent per roomId)
-  const bot = getBotForRoom(roomId);
 
   // Use roomId as userId placeholder (until WebSocket ID is available)
   const userId = `User-${roomId.slice(0, 8)}`;
@@ -126,7 +122,7 @@ export function CandleflipRoomCard({ roomId, betAmount, trend, onVerify, onFinis
       >
         <div className="flex items-center gap-2">
           <span>📉</span>
-          <span>{bot.emoji} {bot.name}</span>
+          <span>🤖 AI</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs">BEARISH</span>

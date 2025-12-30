@@ -1,5 +1,5 @@
 /**
- * useGameHouseContract Hook
+ * useGameHouseContract Hook - V3 Integration
  *
  * Provides contract interaction methods for GameHouseV3 (NoSig)
  * Integrates with Privy wallet for transaction signing
@@ -22,7 +22,7 @@ export function useGameHouseContract() {
   const isInitializingRef = useRef(false);
   const walletAddressRef = useRef<string>('');
 
-  // Get signer from wallet (only called once or when wallet changes)
+  // Get signer from wallet
   const getSigner = useCallback(async () => {
     if (!authenticated || wallets.length === 0) {
       throw new Error('Wallet not connected');
@@ -34,20 +34,17 @@ export function useGameHouseContract() {
     // Force switch to Mantle Sepolia (Chain ID 5003)
     const targetChainId = '0x138B'; // 5003 in hex
     try {
-      // Check current chain
       const currentChainId = await ethereumProvider.request({ method: 'eth_chainId' });
 
       if (currentChainId !== targetChainId) {
         console.log('🔄 Switching to Mantle Sepolia...');
         try {
-          // Try to switch
           await ethereumProvider.request({
             method: 'wallet_switchEthereumChain',
             params: [{ chainId: targetChainId }],
           });
           console.log('✅ Switched to Mantle Sepolia');
         } catch (switchError: any) {
-          // Chain not added yet, add it
           if (switchError.code === 4902) {
             console.log('➕ Adding Mantle Sepolia to wallet...');
             await ethereumProvider.request({
@@ -72,7 +69,7 @@ export function useGameHouseContract() {
       }
     } catch (error) {
       console.error('⚠️ Network switch error:', error);
-      throw new Error('Failed to switch to Mantle Sepolia. Please switch manually in your wallet.');
+      throw new Error('Failed to switch to Mantle Sepolia');
     }
 
     const provider = new ethers.BrowserProvider(ethereumProvider);
@@ -81,7 +78,7 @@ export function useGameHouseContract() {
     return signer;
   }, [authenticated, wallets]);
 
-  // Initialize contract (callable)
+  // Initialize contract
   const initializeContract = useCallback(async () => {
     if (!authenticated || wallets.length === 0) {
       throw new Error('Wallet not connected');
@@ -89,14 +86,11 @@ export function useGameHouseContract() {
 
     const currentAddress = wallets[0].address;
 
-    // Already cached for this wallet?
     if (currentAddress === walletAddressRef.current && cachedContractRef.current) {
       return cachedContractRef.current;
     }
 
-    // Already initializing? Wait for it
     if (isInitializingRef.current) {
-      // Wait for initialization to complete
       while (isInitializingRef.current) {
         await new Promise(resolve => setTimeout(resolve, 50));
       }
@@ -136,18 +130,15 @@ export function useGameHouseContract() {
     }
   }, [authenticated, wallets, initializeContract]);
 
-  // Get contract instance (returns cached or initializes)
+  // Get contract instance
   const getContract = useCallback(async () => {
-    // Return cached if available
     if (cachedContractRef.current) {
       return cachedContractRef.current;
     }
-
-    // Otherwise initialize
     return await initializeContract();
   }, [initializeContract]);
 
-  // Get read-only contract instance (no signer needed)
+  // Get read-only contract instance
   const getReadContract = useMemo(() => {
     const provider = new ethers.JsonRpcProvider(
       GAME_HOUSE_V2_CONFIG.network.rpcUrl
@@ -165,8 +156,9 @@ export function useGameHouseContract() {
   ====================================== */
 
   /**
-   * Place a bet on any game using the bet() function
-   * @param betAmount Bet amount in MNT (e.g., 0.1)
+   * Place a bet using the generic bet() function
+   * Used for ALL games (Crash, CandleFlip, etc.)
+   * @param betAmount Total bet amount in MNT (e.g., 0.1)
    */
   const placeBet = useCallback(
     async (betAmount: EtherValue): Promise<BuyInResult> => {
@@ -186,7 +178,7 @@ export function useGameHouseContract() {
 
         console.log('✅ Transaction confirmed:', receipt.hash);
 
-        // Parse BetPlaced event to get bet details
+        // Parse BetPlaced event
         const betPlacedEvent = receipt.logs.find((log: any) => {
           try {
             const parsed = contract.interface.parseLog(log);
@@ -226,6 +218,19 @@ export function useGameHouseContract() {
       }
     },
     [getContract]
+  );
+
+  /**
+   * Place a CandleFlip bet (wrapper around placeBet)
+   * @param betAmount Bet amount per room in MNT
+   * @param numberOfRooms Number of rooms to create
+   */
+  const placeCandleFlip = useCallback(
+    async (betAmount: EtherValue, numberOfRooms: number): Promise<BuyInResult> => {
+      const totalBet = betAmount * numberOfRooms;
+      return await placeBet(totalBet);
+    },
+    [placeBet]
   );
 
   /**
@@ -320,6 +325,7 @@ export function useGameHouseContract() {
 
     // V3 Functions
     placeBet,
+    placeCandleFlip, // Convenience wrapper
     fundHouse,
 
     // View functions

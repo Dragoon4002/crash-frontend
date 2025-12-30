@@ -6,30 +6,28 @@ import { TrendType } from '@/types/candleflip';
 import { TrendingUp, TrendingDown, Plus, Minus } from 'lucide-react';
 import { useWebSocket } from '@/contexts/WebSocketContext';
 import { useGameHouseContract } from '@/hooks/useGameHouseContract';
+import { ethers } from 'ethers';
 
 export function CandleflipMode() {
-  const { rooms, isConnected, clientId, createRoom, subscribe, unsubscribe } = useWebSocket();
+  const { rooms, isConnected, clientId, createCandleflipBatch } = useWebSocket();
   const { placeCandleFlip, isConnected: walletConnected } = useGameHouseContract();
 
-  useEffect(() => {
-    subscribe('rooms');
-    return () => unsubscribe('rooms');
-  }, [subscribe, unsubscribe]);
   const [betAmount, setBetAmount] = useState<number>(0.01);
   const [numberOfRooms, setNumberOfRooms] = useState<number>(1);
   const [trend, setTrend] = useState<TrendType>('bullish');
-  const [balance] = useState<number>(10.0); // Mock balance
+  const [balance] = useState<number>(10.0); // Mock balance - replace with real wallet balance
   const [isPlacing, setIsPlacing] = useState(false);
 
-  // Filter only candleflip rooms (include finished to show results)
-  const candleflipRooms = rooms.filter(room =>
-    room.gameType === 'candleflip'
-  );
+  useEffect(() => {
+    // Subscribe to rooms channel to see all active rooms
+    // Individual room subscriptions happen in CandleflipRoomCard
+  }, []);
 
   const quickAmounts = [0.01, 0.1, 0.5, 1, 5];
 
   const handleVerify = (gameId: string, serverSeed: string) => {
     console.log('Verify game:', gameId, serverSeed);
+    // TODO: Implement verification modal
   };
 
   const handleCreateRooms = async () => {
@@ -41,28 +39,35 @@ export function CandleflipMode() {
     setIsPlacing(true);
 
     try {
-      // Call smart contract to place CandleFlip
+      // Step 1: Call smart contract to place bet
       const result = await placeCandleFlip(betAmount, numberOfRooms);
 
-      if (result.success && result.gameId) {
-        console.log('✅ CandleFlip placed! Game ID:', result.gameId);
-
-        // Now create rooms on server with the contract gameId
-        const timestamp = Date.now();
-        const botNameSeed = `${clientId}-${timestamp}`;
-        const contractGameId = result.gameId.toString();
-
-        Array.from({ length: numberOfRooms }, (_, index) => {
-          const roomId = `${timestamp}-${index}`;
-          // Pass contract gameId to server
-          createRoom(roomId, 'candleflip', betAmount, trend, clientId, botNameSeed, contractGameId, numberOfRooms);
-        });
-
-        // Show success message
-        // alert(`CandleFlip created! Game ID: ${result.gameId}\nTransaction: ${result.transactionHash}`);
-      } else {
+      if (!result.success) {
         alert(`Failed to place CandleFlip: ${result.error}`);
+        setIsPlacing(false);
+        return;
       }
+
+      console.log('✅ CandleFlip bet placed! TX:', result.transactionHash);
+
+      // Step 2: Create batch on server via WebSocket
+      // Server will handle the game logic and payouts
+      const amountPerRoomWei = ethers.parseEther(betAmount.toString()).toString();
+      const side = trend === 'bullish' ? 'bull' : 'bear';
+
+      // Get user's wallet address from contract hook
+      const { wallets } = await import('@privy-io/react-auth').then(m => m.useWallets());
+      const userAddress = wallets[0]?.address || clientId;
+
+      createCandleflipBatch(
+        userAddress,
+        numberOfRooms,
+        amountPerRoomWei,
+        side
+      );
+
+      console.log('📡 Sent batch creation request to server');
+      alert(`CandleFlip created! ${numberOfRooms} room(s) @ ${betAmount} MNT each\nTX: ${result.transactionHash}`);
     } catch (error) {
       console.error('Error placing CandleFlip:', error);
       alert('Failed to place CandleFlip!');
@@ -72,6 +77,9 @@ export function CandleflipMode() {
   };
 
   const canPlaceBet = betAmount * numberOfRooms <= balance;
+
+  // Filter for candleflip rooms from unified WebSocket
+  const candleflipRooms = rooms.filter(room => room.gameType === 'candleflip');
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden bg-[#0d1117]">

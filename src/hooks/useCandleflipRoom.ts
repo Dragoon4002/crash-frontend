@@ -51,10 +51,14 @@ interface BatchCreatedData {
 interface CandleflipMessage {
   type: 'batch_created' | 'batch_start' | 'room_start' | 'price_update' | 'room_end' | 'batch_end' | 'payout_failed' | 'error';
   batchId?: string;
-  data?: BatchStartData | RoomStartData | PriceUpdateData | RoomEndData | BatchEndData | PayoutFailedData | BatchCreatedData;
+  data?: BatchStartData | RoomStartData | PriceUpdateData | RoomEndData | BatchEndData | PayoutFailedData | BatchCreatedData | any;
   error?: string;
 }
 
+/**
+ * Hook to manage a single CandleFlip room within a batch
+ * Connects to /candleflip WebSocket endpoint
+ */
 export function useCandleflipRoom(wsUrl: string, batchId: string, roomNumber: number) {
   const [gameState, setGameState] = useState<CandleflipGameState>({
     batchId: batchId,
@@ -76,7 +80,7 @@ export function useCandleflipRoom(wsUrl: string, batchId: string, roomNumber: nu
   const [countdownMessage, setCountdownMessage] = useState<string>('');
 
   const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isFinishedRef = useRef<boolean>(false);
   const isMountedRef = useRef<boolean>(true);
 
@@ -109,7 +113,7 @@ export function useCandleflipRoom(wsUrl: string, batchId: string, roomNumber: nu
 
         switch (message.type) {
           case 'batch_created':
-            console.log('📦 Batch created:', (message as any).batchId);
+            console.log('📦 Batch created:', message.batchId);
             break;
 
           case 'batch_start':

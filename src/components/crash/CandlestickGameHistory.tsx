@@ -1,231 +1,260 @@
 'use client';
 
-import { Card } from '@/components/ui/card';
-import { CandlestickChartCanvas, CandleGroup } from '@/components/crash/CandlestickChartCanvas';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
+import React from 'react';
+import { useWebSocket } from '@/contexts/WebSocketContext';
 
-interface CandleData {
+interface CandleGroup {
   open: number;
-  close?: number;
+  close: number;
   max: number;
   min: number;
+  valueList?: number[];
+  startTime?: number;
+  durationMs?: number;
+  isComplete?: boolean;
 }
 
 interface GameHistoryItem {
   gameId: string;
   peakMultiplier: number;
   rugged: boolean;
-  candles: CandleData[];
+  candles?: CandleGroup[]; // Optional since it might not exist
   timestamp: string;
 }
 
-interface CandlestickGameHistoryProps {
-  history: GameHistoryItem[];
-}
+export function CandlestickGameHistory() {
+  const { crashHistory } = useWebSocket();
 
-const MAX_VISIBLE_HISTORY = 20;
-
-export function CandlestickGameHistory({ history }: CandlestickGameHistoryProps) {
-  const [newGameId, setNewGameId] = useState<string | null>(null);
-  const previousGameIdRef = useRef<string | null>(null);
-
-  // Limit history to MAX_VISIBLE_HISTORY items
-  const limitedHistory = history.slice(0, MAX_VISIBLE_HISTORY);
-
-  // Reverse order: most recent game first (leftmost)
-  const reversedHistory = [...limitedHistory].reverse();
-
-  // Track new games for glow effect
-  useEffect(() => {
-    if (limitedHistory.length > 0) {
-      const latestGameId = limitedHistory[0].gameId;
-
-      // Check if this is a new game (different from previous)
-      if (previousGameIdRef.current && previousGameIdRef.current !== latestGameId) {
-        setNewGameId(latestGameId);
-
-        // Remove glow after 2 seconds
-        const timeout = setTimeout(() => {
-          setNewGameId(null);
-        }, 2000);
-
-        return () => clearTimeout(timeout);
-      }
-
-      previousGameIdRef.current = latestGameId;
-    }
-  }, [limitedHistory]);
-
-  if (!history || history.length === 0) {
+  if (!crashHistory || crashHistory.length === 0) {
     return (
-      <Card className="border-white/5 p-2 m-4 mb-0">
-        <h3 className="text-sm text-gray-400">Game History</h3>
-        <div className="text-xs text-gray-500 text-center py-4">
-          No game history available
+      <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
+        <h3 className="text-sm font-medium text-gray-400 mb-4">Recent Games</h3>
+        <div className="flex items-center justify-center h-32 text-gray-500 text-sm">
+          No game history yet
         </div>
-      </Card>
+      </div>
     );
   }
 
   return (
-    <Card className="border-white/5 h-full overflow-hidden gap-0! p-2! m-4 mb-0">
-      <div className="flex gap-2 overflow-x-auto overflow-hidden h-full">
-        <AnimatePresence initial={false} mode="popLayout">
-          {reversedHistory.map((game, idx) => {
-            const isNew = game.gameId === newGameId;
-            // Animation index: most recent game (last in reversed array) should animate as index 0
-            const animationIndex = reversedHistory.length - 1 - idx;
-
-            return (
-              <MiniGameBlock
-                key={game.gameId}
-                game={game}
-                index={animationIndex}
-                isNew={isNew}
-              />
-            );
-          })}
-        </AnimatePresence>
+    <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
+      <h3 className="text-sm font-medium text-gray-400 mb-4">
+        Recent Games ({crashHistory.length})
+      </h3>
+      
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+        {crashHistory.slice(0, 10).map((game, index) => (
+          <MiniGameBlock key={game.gameId || index} game={game} />
+        ))}
       </div>
-    </Card>
+    </div>
   );
 }
 
-interface MiniGameBlockProps {
-  game: GameHistoryItem;
-  index: number;
-  isNew: boolean;
-}
+function MiniGameBlock({ game }: { game: GameHistoryItem }) {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
 
-function MiniGameBlock({ game, index, isNew }: MiniGameBlockProps) {
-  const isRugged = game.rugged;
+  React.useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-  // Calculate gradient color from gray (0.00) to green (10.00+)
-  const getMultiplierColor = (multiplier: number): string => {
-    // if (isRugged) return '#ef4444'; // Red for rugged
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    // Normalize multiplier to 0-1 range (0.00 = 0, 10.00 = 1)
-    const normalized = Math.min(multiplier / 10.0, 1.0);
+    // Set canvas size
+    const width = 120;
+    const height = 80;
+    canvas.width = width;
+    canvas.height = height;
 
-    // Interpolate between gray (156,163,175) and pure green (0,255,0)
-    const r = Math.round(156 + (0 - 156) * normalized);
-    const g = Math.round(163 + (255 - 163) * normalized);
-    const b = Math.round(175 + (0 - 175) * normalized);
+    // Clear canvas
+    ctx.fillStyle = '#0d1117';
+    ctx.fillRect(0, 0, width, height);
 
-    return `rgb(${r}, ${g}, ${b})`;
-  };
+    // Check if we have candle data
+    if (!game.candles || !Array.isArray(game.candles) || game.candles.length === 0) {
+      // Draw a simple peak indicator if no candle data
+      drawSimplePeakIndicator(ctx, width, height, game.peakMultiplier, game.rugged);
+      return;
+    }
 
-  const multiplierColor = getMultiplierColor(game.peakMultiplier);
+    // Convert CandleGroup data to simplified format for mini chart
+    const candleGroups: CandleGroup[] = game.candles.map((candle) => ({
+      open: candle.open || 1.0,
+      close: candle.close ?? candle.open ?? 1.0,
+      max: candle.max || 1.0,
+      min: candle.min || 1.0,
+      isComplete: candle.isComplete ?? true,
+    }));
 
-  // Convert CandleData to CandleGroup format
-  const candleGroups: CandleGroup[] = game.candles.map((candle, idx) => ({
-    open: candle.open,
-    close: candle.close ?? candle.open,
-    max: candle.max,
-    min: candle.min,
-    valueList: [],
-    startTime: Date.now() - (game.candles.length - idx) * 1000,
-    durationMs: 1000,
-    isComplete: true,
-  }));
+    drawMiniCandlestickChart(ctx, width, height, candleGroups, game.rugged);
+  }, [game]);
 
-  // Calculate Y-range to fill 100% of canvas height
-  // Normalize each graph from its min to max regardless of absolute values
-  const yRange = game.candles.length > 0 ? (() => {
-    const minValue = Math.min(...game.candles.map(c => c.min));
-    const maxValue = Math.max(...game.candles.map(c => c.max));
-    const range = maxValue - minValue;
-
-    // Tiny padding (2%) to prevent candles from touching edges
-    const padding = range * 0.02;
-
-    return {
-      min: minValue - padding,
-      max: maxValue + padding,
-    };
-  })() : { min: 0.5, max: 1.5 };
+  // Determine color based on peak
+  const peakColor = game.rugged 
+    ? '#ef4444' 
+    : game.peakMultiplier >= 10 
+    ? '#10b981' 
+    : game.peakMultiplier >= 2 
+    ? '#3b82f6' 
+    : '#8b949e';
 
   return (
-    <motion.div
-      layout
-      initial={index === 0 ? {
-        scaleY: 0,
-        opacity: 0,
-        originY: 1, // Grow from bottom
-      } : false}
-      animate={{
-        scaleY: 1,
-        opacity: 1,
-      }}
-      exit={{
-        scaleY: 0,
-        opacity: 0,
-        originY: 1,
-      }}
-      transition={{
-        layout: {
-          type: "spring",
-          stiffness: 400,
-          damping: 30,
-          delay: index * 0.02, // Stagger slide animation
-        },
-        scaleY: {
-          type: "spring",
-          stiffness: 300,
-          damping: 25,
-          duration: 0.4,
-        },
-        opacity: {
-          duration: 0.3,
-        },
-      }}
-      className={`rounded-lg border transition-all shrink-0 relative ${
-        isNew
-          ? 'border-green-400/50 shadow-lg shadow-green-500/20'
-          : 'border-white/5 hover:border-white/10'
-      }`}
-    >
-      {/* Candlestick Chart Canvas - Square aspect ratio */}
-      <motion.div
-        className="aspect-square w-24 relative overflow-hidden"
-        initial={index === 0 ? { height: 0, width: 0 } : false}
-        animate={{ height: 96, width: 96 }} // w-24 = 6rem = 96px
-        transition={{
-          type: "spring",
-          stiffness: 300,
-          damping: 25,
-          duration: 0.4,
-        }}
-      >
-        <CandlestickChartCanvas
-          previousCandles={candleGroups}
-          currentCandle={undefined}
-          currentPrice={0}
-          gameEnded={true}
-          isHistoryMode={true}
-          historyMergeCount={10}
-          fixedYRange={yRange}
-          showYAxis={false}
+    <div className="bg-[#0d1117] border border-[#30363d] rounded-lg overflow-hidden hover:border-[#58a6ff] transition-colors group cursor-pointer">
+      {/* Canvas */}
+      <div className="relative h-20">
+        <canvas
+          ref={canvasRef}
+          className="w-full h-full"
+          style={{ display: 'block' }}
         />
-      </motion.div>
-
-      {/* Peak Value */}
-      <motion.div
-        className="text-center text-xs font-bold absolute bottom-1 left-0 right-0"
-        style={{ color: multiplierColor }}
-        initial={index === 0 ? { opacity: 0, y: 10 } : false}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3, duration: 0.2 }}
-      >
-        {isRugged ? (
-          <span className="flex items-center justify-center gap-1">
+        
+        {/* Overlay info */}
+        <div className="absolute top-1 right-1 bg-black/50 px-1.5 py-0.5 rounded text-xs font-mono">
+          <span style={{ color: peakColor }}>
             {game.peakMultiplier.toFixed(2)}x
           </span>
-        ) : (
-          `${game.peakMultiplier.toFixed(2)}x`
+        </div>
+
+        {game.rugged && (
+          <div className="absolute inset-0 flex items-center justify-center bg-red-500/10">
+            <span className="text-red-500 text-xs font-bold">RUGGED</span>
+          </div>
         )}
-      </motion.div>
-    </motion.div>
+      </div>
+
+      {/* Footer */}
+      <div className="px-2 py-1.5 border-t border-[#30363d] bg-[#161b22]">
+        <div className="text-xs text-gray-500 truncate font-mono">
+          {game.gameId ? `#${game.gameId.slice(-8)}` : 'Game'}
+        </div>
+      </div>
+    </div>
   );
+}
+
+// Draw mini candlestick chart
+function drawMiniCandlestickChart(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  candles: CandleGroup[],
+  rugged: boolean
+) {
+  if (candles.length === 0) return;
+
+  const padding = { top: 5, right: 5, bottom: 5, left: 5 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+
+  // Calculate Y-axis range
+  const allValues = candles.flatMap(c => [c.open, c.close, c.max, c.min]);
+  const minValue = Math.min(...allValues, 0.5);
+  const maxValue = Math.max(...allValues, 1.5);
+  const range = maxValue - minValue;
+  const yMin = Math.max(0, minValue - range * 0.1);
+  const yMax = maxValue + range * 0.1;
+
+  // Helper: value to Y coordinate
+  const valueToY = (value: number): number => {
+    const normalized = (value - yMin) / (yMax - yMin);
+    return padding.top + chartHeight * (1 - normalized);
+  };
+
+  // Draw candles
+  const candleWidth = Math.max(1, chartWidth / candles.length - 1);
+  const spacing = Math.min(1, chartWidth / candles.length - candleWidth);
+
+  candles.forEach((candle, index) => {
+    const x = padding.left + index * (candleWidth + spacing);
+    
+    const isGreen = candle.close >= candle.open;
+    const color = rugged && index === candles.length - 1 
+      ? '#ef4444' 
+      : isGreen 
+      ? '#26a69a' 
+      : '#ef5350';
+
+    const yOpen = valueToY(candle.open);
+    const yClose = valueToY(candle.close);
+    const yHigh = valueToY(candle.max);
+    const yLow = valueToY(candle.min);
+
+    const bodyTop = Math.min(yOpen, yClose);
+    const bodyBottom = Math.max(yOpen, yClose);
+    const bodyHeight = Math.max(1, bodyBottom - bodyTop);
+
+    // Draw wick
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x + candleWidth / 2, yHigh);
+    ctx.lineTo(x + candleWidth / 2, yLow);
+    ctx.stroke();
+
+    // Draw body
+    ctx.fillStyle = color;
+    ctx.fillRect(x, bodyTop, candleWidth, bodyHeight);
+  });
+
+  // Draw 1.0x reference line
+  if (yMin <= 1.0 && yMax >= 1.0) {
+    const y1 = valueToY(1.0);
+    ctx.strokeStyle = '#30363d';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath();
+    ctx.moveTo(padding.left, y1);
+    ctx.lineTo(padding.left + chartWidth, y1);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+// Draw simple peak indicator when no candle data available
+function drawSimplePeakIndicator(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  peak: number,
+  rugged: boolean
+) {
+  const padding = { top: 10, right: 10, bottom: 10, left: 10 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+
+  // Draw a simple line from 1.0x to peak
+  const startY = padding.top + chartHeight;
+  const peakY = padding.top + chartHeight * (1 - Math.min(peak / 10, 1));
+  
+  const color = rugged ? '#ef4444' : peak >= 10 ? '#10b981' : '#3b82f6';
+
+  // Draw line
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(padding.left, startY);
+  ctx.lineTo(padding.left + chartWidth, peakY);
+  ctx.stroke();
+
+  // Draw start point
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(padding.left, startY, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Draw end point
+  ctx.beginPath();
+  ctx.arc(padding.left + chartWidth, peakY, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (rugged) {
+    // Draw crash effect
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(padding.left + chartWidth, peakY);
+    ctx.lineTo(padding.left + chartWidth, startY);
+    ctx.stroke();
+  }
 }

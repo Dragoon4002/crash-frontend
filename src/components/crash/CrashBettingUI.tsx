@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useGameHouseContract } from '@/hooks/useGameHouseContract';
+import { API_ENDPOINTS } from '@/config/api';
 import { ethers } from 'ethers';
 
 interface CrashBettingUIProps {
@@ -74,15 +75,34 @@ export function CrashBettingUI({ gameId, currentMultiplier, status }: CrashBetti
     setIsProcessing(true);
 
     try {
-      const result = await cashOut(parseInt(gameId, 10), currentMultiplier);
+      // Get user's wallet address
+      const userAddress = window.ethereum?.selectedAddress;
+      if (!userAddress) {
+        alert('Wallet not connected!');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Call gasless API endpoint (server pays gas)
+      const response = await fetch(API_ENDPOINTS.crashCashout, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: userAddress,
+          gameId: parseInt(gameId, 10).toString(),
+          currentMultiplier: currentMultiplier,
+        }),
+      });
+
+      const result = await response.json();
 
       if (result.success && result.payout) {
         const payoutMNT = ethers.formatEther(result.payout);
         console.log('✅ Cashed out! Payout:', payoutMNT, 'MNT');
         setHasBet(false);
-        alert(`Cashed out!\nPayout: ${payoutMNT} MNT\nMultiplier: ${currentMultiplier.toFixed(2)}x`);
+        alert(`Cashed out!\nPayout: ${payoutMNT} MNT\nMultiplier: ${currentMultiplier.toFixed(2)}x\nTX: ${result.txHash}`);
       } else {
-        alert(`Cash-out failed: ${result.error}`);
+        alert(`Cash-out failed: ${result.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Cash-out error:', error);

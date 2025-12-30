@@ -15,13 +15,13 @@ export function NewSidebar() {
           </div>
         </div>
       </SidebarHeader>
-      <SidebarContent>
-          <SidebarGroupContent className='h-full border-r'>
+      <SidebarContent className='border-r border-white/15'>
+          <SidebarGroupContent className='h-full '>
             <ServerChat />
           </SidebarGroupContent>
         <SidebarGroup />
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className='border-r border-white/15'>
         <div className='p-4 text-center h-20 text-sm text-white/50'>
           © 2024 RUGS.FUN
         </div>

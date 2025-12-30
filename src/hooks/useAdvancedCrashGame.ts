@@ -20,6 +20,7 @@ export interface UseAdvancedCrashGameReturn {
   targetValue: number;
   countdown: number;
   groups: CandleGroup[];
+  currentCandle?: CandleGroup;
   gameId: string;
   rugged: boolean;
   reconnect: () => void;
@@ -76,6 +77,7 @@ export function useAdvancedCrashGame(): UseAdvancedCrashGameReturn {
   const [targetValue, setTargetValue] = useState<number>(1.0);
   const [countdown, setCountdown] = useState<number>(COUNTDOWN_DURATION);
   const [groups, setGroups] = useState<CandleGroup[]>([]);
+  const [currentCandle, setCurrentCandle] = useState<CandleGroup | undefined>(undefined);
   const [gameId, setGameId] = useState<string>('');
   const [rugged, setRugged] = useState<boolean>(false);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -107,6 +109,7 @@ export function useAdvancedCrashGame(): UseAdvancedCrashGameReturn {
       setTargetValue(1.0);
       setCountdown(COUNTDOWN_DURATION);
       setGroups([]);
+      setCurrentCandle(undefined);
       setRugged(false);
       setStatus('countdown');
     } else if (message.type === 'countdown') {
@@ -120,12 +123,20 @@ export function useAdvancedCrashGame(): UseAdvancedCrashGameReturn {
         setGroups(message.data.previousCandles);
       }
 
+      // Update current candle
+      if (message.data.currentCandle) {
+        setCurrentCandle(message.data.currentCandle);
+      } else {
+        setCurrentCandle(undefined);
+      }
+
       setStatus('running');
     } else if (message.type === 'game_end') {
       setCurrentValue(message.data.rugged ? 0 : message.data.peakMultiplier);
       setTargetValue(message.data.rugged ? 0 : message.data.peakMultiplier);
       setRugged(message.data.rugged);
       setGroups(message.data.previousCandles || []);
+      setCurrentCandle(undefined);
       setStatus('crashed');
     }
   }, [currentCrashGame]);
@@ -178,6 +189,7 @@ export function useAdvancedCrashGame(): UseAdvancedCrashGameReturn {
     targetValue,
     countdown,
     groups,
+    currentCandle,
     gameId,
     rugged,
     reconnect

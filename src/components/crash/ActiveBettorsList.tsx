@@ -18,7 +18,7 @@ interface ActiveBettorsListProps {
 export function ActiveBettorsList({ bettors, currentMultiplier }: ActiveBettorsListProps) {
   if (!bettors || bettors.length === 0) {
     return (
-      <Card className="bg-[#14141f] border-white/5 p-4">
+      <Card className="bg-[#14141f] border-white/5 p-4 w-full" >
         <h3 className="text-sm text-gray-400 mb-3">Active Bettors</h3>
         <div className="text-xs text-gray-500 text-center py-4">
           No active bettors in this game
@@ -28,7 +28,7 @@ export function ActiveBettorsList({ bettors, currentMultiplier }: ActiveBettorsL
   }
 
   return (
-    <Card className="bg-[#14141f] border-white/5 p-4">
+    <Card className="bg-[#14141f] border-white/5 p-4 w-full">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm text-gray-400">Active Bettors</h3>
         <span className="text-xs text-white/60 bg-white/5 px-2 py-1 rounded">

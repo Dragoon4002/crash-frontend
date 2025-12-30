@@ -26,7 +26,7 @@ export function NewHeader({ currentMode, onModeChange }: HeaderProps) {
   const walletAddress = user?.wallet?.address;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/20 w-full h-15 backdrop-blur">
+    <header className="sticky top-0 z-50 w-full h-15 backdrop-blur">
       <div className="flex h-full items-center justify-between px-4">
 
         {/* Game Mode Tabs */}

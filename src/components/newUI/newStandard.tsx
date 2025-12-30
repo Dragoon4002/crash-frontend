@@ -6,6 +6,9 @@ import { TradingPanel } from '@/components/trading/TradingPanel';
 import { GameHistory } from '@/components/crash/GameHistory';
 import { ActiveBettorsList } from '@/components/crash/ActiveBettorsList';
 import { useWebSocket } from '@/contexts/WebSocketContext';
+import { CandlestickCanvas } from '../crash/CandlestickCanvas';
+import { LiveCandlestickChart } from '../trading/LiveCandlestickChart';
+import { CandlestickGameHistory } from '../crash/CandlestickGameHistory';
 
 export function NewStandardMode() {
   // Connect to crash game WebSocket for real-time game data
@@ -37,29 +40,31 @@ export function NewStandardMode() {
     //     </div>
     //   </div>
     // </div>
-    <div>
+    <div className='w-[calc(100vw-20rem)] overflow-hidden border-t border-white/15'>
+      <section>
+        <CandlestickGameHistory history={crashHistory || []} />
+      </section>
       <div className='bg-linear-180 to-[#121618] from-[#201d1a] border-4 rounded-2xl m-4 border-white/5 h-[30rem] flex items-center justify-center'>
-        <h2 className='text-white text-xl'>Trade Chart Section</h2>
+        <LiveCandlestickChart />
       </div>
       {/* Trade Panel Section */}
-      <div className='flex items-center justify-center'>
-        <div className='h-40 m-4 w-[35%] text-xl text-center mt-0 border border-white/10 rounded-lg '>
-          <TradingPanel 
+      <div className='flex items-center justify-center gap-4 mx-4'>
+        <div className='h-40 w-[35%] text-xl text-center border border-white/10 rounded-lg'>
+          <TradingPanel
             gameId={gameId}
             currentMultiplier={multiplier}
             status={status}
             isRugged={rugged}
           />
         </div>
-        <div className='h-40 m-4 w-[75%] text-xl text-center mt-0 border border-white/10 rounded-lg '>History Panel Section</div>
+        <ActiveBettorsList
+          bettors={activeBettors}
+          currentMultiplier={multiplier}
+        />
       </div>
       {/* Live Trader List Section */}
       {/* <div className='bg-[#14141f] border border-white/10 rounded-lg flex items-center justify-center h-full mx-4'> */}
         {/* Active Bettors List - below trading panel */}
-          <ActiveBettorsList
-            bettors={activeBettors}
-            currentMultiplier={multiplier}
-          />
       {/* </div> */}
     </div>
   );

@@ -1,22 +1,11 @@
 'use client'
 
 import { Card } from '@/components/ui/card';
-import { CandlestickChartCanvas } from '@/components/crash/CandlestickChartCanvas';
+import { AdvancedCandlestickCanvas } from '@/components/crash/AdvancedCandlestickCanvas';
 import { useAdvancedCrashGame } from '@/hooks/useAdvancedCrashGame';
-import { useMemo } from 'react';
 
 export function TradingChart() {
   const { status, currentValue, countdown, groups, gameId, rugged } = useAdvancedCrashGame();
-
-  // Split groups into previous and current candles
-  const { previousCandles, currentCandle } = useMemo(() => {
-    const prev = groups.filter(g => g.isComplete);
-    const current = groups.find(g => !g.isComplete);
-    return { previousCandles: prev, currentCandle: current };
-  }, [groups]);
-
-  // Determine if game ended
-  const gameEnded = status === 'crashed' || rugged;
 
   return (
     <Card className="bg-[#14141f] border-white/5 p-0 overflow-hidden">
@@ -41,12 +30,11 @@ export function TradingChart() {
         )}
 
         {/* Real-time Advanced Trading Chart */}
-        <CandlestickChartCanvas
-          previousCandles={previousCandles}
-          currentCandle={currentCandle}
-          currentPrice={currentValue}
-          gameEnded={gameEnded}
-          isHistoryMode={false}
+        <AdvancedCandlestickCanvas
+          groups={groups}
+          currentValue={currentValue}
+          status={status}
+          rugged={rugged}
         />
 
         {/* Game ID Badge */}

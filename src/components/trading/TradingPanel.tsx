@@ -247,7 +247,7 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
               type="text"
               value={betAmount.toFixed(3)}
               onChange={handleAmountChange}
-              className="px-3 py-1.5 min-w-16 text-white text-sm font-mono focus:outline-none focus:border-white/30"
+              className="px-3 py-1.5 max-w-20 text-white text-sm font-mono focus:outline-none focus:border-white/30"
               placeholder="0.000"
             />
             {/* Reset button (X) */}

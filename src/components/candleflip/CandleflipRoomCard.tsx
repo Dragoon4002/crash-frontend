@@ -71,7 +71,7 @@ export function CandleflipRoomCard({ roomId, betAmount, trend, onVerify, onFinis
         </button>
       </div>
 
-      {/* Top Banner - Bullish (User) */}
+      {/* Top Banner - Bullish Side */}
       <div
         className={`h-10 flex items-center justify-between px-4 font-bold text-sm border-b border-[#30363d] ${
           trend === 'bullish'
@@ -81,7 +81,7 @@ export function CandleflipRoomCard({ roomId, betAmount, trend, onVerify, onFinis
       >
         <div className="flex items-center gap-2">
           <span>📈</span>
-          <span>{userId}</span>
+          <span>{trend === 'bullish' ? userId : `${bot.emoji} ${bot.name}`}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs">BULLISH</span>
@@ -116,7 +116,7 @@ export function CandleflipRoomCard({ roomId, betAmount, trend, onVerify, onFinis
         )}
       </div>
 
-      {/* Bottom Banner - Bearish (Bot) */}
+      {/* Bottom Banner - Bearish Side */}
       <div
         className={`h-10 flex items-center justify-between px-4 font-bold text-sm border-t border-[#30363d] ${
           trend === 'bearish'
@@ -126,7 +126,7 @@ export function CandleflipRoomCard({ roomId, betAmount, trend, onVerify, onFinis
       >
         <div className="flex items-center gap-2">
           <span>📉</span>
-          <span>{bot.emoji} {bot.name}</span>
+          <span>{trend === 'bearish' ? userId : `${bot.emoji} ${bot.name}`}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs">BEARISH</span>

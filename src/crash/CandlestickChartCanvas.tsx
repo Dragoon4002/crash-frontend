@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export interface CandleGroup {
   open: number;
@@ -20,7 +20,9 @@ interface CandlestickChartCanvasProps {
   gameEnded: boolean;
   isHistoryMode?: boolean; // false = Live Mode, true = History Mode
   historyMergeCount?: number; // How many candles to show in history mode (default 20)
-  status?: string; // Game status for better rendering control
+  fixedYRange?: { min: number; max: number }; // Optional fixed Y-axis range for history mode
+  showYAxis?: boolean; // Whether to show Y-axis labels (default true)
+  status?: 'connecting' | 'countdown' | 'running' | 'crashed'; // Game status for reset detection
 }
 
 export function CandlestickChartCanvas({
@@ -30,42 +32,83 @@ export function CandlestickChartCanvas({
   gameEnded,
   isHistoryMode = false,
   historyMergeCount = 20,
+  fixedYRange,
+  showYAxis = true,
   status,
 }: CandlestickChartCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const [yRange, setYRange] = useState<{ min: number; max: number }>({ min: 0.75, max: 1.25 });
+  // Use fixedYRange if provided in history mode, otherwise default
+  const [yRange, setYRange] = useState<{ min: number; max: number }>(
+    isHistoryMode && fixedYRange ? fixedYRange : { min: 0.5, max: 1.5 }
+  );
   const [rugAnimationProgress, setRugAnimationProgress] = useState(0); // 0 to 1
-  const [showRugText, setShowRugText] = useState(false);
   const rugAnimationStartTime = useRef<number | null>(null);
+  const previousGameEndedRef = useRef<boolean>(gameEnded);
+  const previousCandleCountRef = useRef<number>(previousCandles.length);
   const previousStatusRef = useRef<string | undefined>(status);
 
-  // Reset range when new game starts
+  // Reset Y-axis range when game restarts
   useEffect(() => {
-    // Detect new game start: transition from countdown/crashed to running or countdown
-    const isNewGame =
-      (previousStatusRef.current === 'crashed' || previousStatusRef.current === 'running') &&
-      (status === 'countdown' || status === 'connecting');
+    // Skip if in history mode or has fixed range
+    if (isHistoryMode || fixedYRange) return;
 
-    if (isNewGame && !isHistoryMode) {
-      // Reset to initial range
-      setYRange({ min: 0.75, max: 1.25 });
+    // Detect game restart (gameEnded: true -> false)
+    if (previousGameEndedRef.current === true && gameEnded === false) {
+      console.log('🔄 [CandlestickChartCanvas] Game restarted (gameEnded: true->false) - resetting Y-axis');
+      setYRange({ min: 0.5, max: 1.5 });
+      setRugAnimationProgress(0);
+      rugAnimationStartTime.current = null;
+    }
+    previousGameEndedRef.current = gameEnded;
+  }, [gameEnded, isHistoryMode, fixedYRange]);
+
+  // Reset Y-axis when candles are cleared (new game starting)
+  useEffect(() => {
+    // Skip if in history mode or has fixed range
+    if (isHistoryMode || fixedYRange) return;
+
+    const currentCount = previousCandles.length;
+    const prevCount = previousCandleCountRef.current;
+
+    // Reset when candles go from many to 0 or very few (new game starting)
+    if (prevCount > 5 && currentCount === 0 && !currentCandle) {
+      console.log('🔄 [CandlestickChartCanvas] Candles cleared (new game) - resetting Y-axis');
+      setYRange({ min: 0.5, max: 1.5 });
+      setRugAnimationProgress(0);
+      rugAnimationStartTime.current = null;
+    }
+
+    previousCandleCountRef.current = currentCount;
+  }, [previousCandles.length, currentCandle, isHistoryMode, fixedYRange]);
+
+  // Reset Y-axis during countdown (aggressive reset to prevent stale ranges)
+  useEffect(() => {
+    // Skip if in history mode or has fixed range
+    if (isHistoryMode || fixedYRange) return;
+
+    // Reset during countdown (every countdown tick to ensure it's reset)
+    if (status === 'countdown') {
+      console.log('🔄 [CandlestickChartCanvas] Countdown active - enforcing Y-axis reset');
+      setYRange({ min: 0.5, max: 1.5 });
       setRugAnimationProgress(0);
       rugAnimationStartTime.current = null;
     }
 
     previousStatusRef.current = status;
-  }, [status, isHistoryMode]);
+  }, [status, isHistoryMode, fixedYRange]);
+
+  // Use fixed Y-range for history mode if provided
+  useEffect(() => {
+    if (isHistoryMode && fixedYRange) {
+      setYRange(fixedYRange);
+    }
+  }, [isHistoryMode, fixedYRange]);
 
   // Start rug animation when game ends
   useEffect(() => {
     if (gameEnded && !isHistoryMode) {
       rugAnimationStartTime.current = Date.now();
-      // Show rug text after animation starts
-      setTimeout(() => setShowRugText(true), 100);
-    } else {
-      setShowRugText(false);
-      setRugAnimationProgress(0);
     }
   }, [gameEnded, isHistoryMode]);
 
@@ -120,10 +163,13 @@ export function CandlestickChartCanvas({
     return candles;
   };
 
-  // Update Y-axis range based on current price
+  // Update Y-axis range based on current price (only for live mode without fixedYRange)
   useEffect(() => {
-    // Don't update range during countdown - let the reset take effect
-    if (status === 'countdown' || status === 'connecting') return;
+    // Skip entirely if using fixed Y-range or in history mode
+    if (isHistoryMode || fixedYRange) return;
+
+    // IMPORTANT: Only auto-expand during active gameplay, not during countdown/connecting/crashed
+    if (status !== 'running') return;
 
     const allCandles = getDisplayCandles();
     if (allCandles.length === 0 && currentPrice === 0) return;
@@ -162,7 +208,7 @@ export function CandlestickChartCanvas({
     if (needsUpdate) {
       setYRange({ min: newMin, max: newMax });
     }
-  }, [currentPrice, previousCandles, currentCandle, isHistoryMode, status, yRange]);
+  }, [currentPrice, previousCandles, currentCandle, isHistoryMode, fixedYRange, status]);
 
   // Rendering
   useEffect(() => {
@@ -187,17 +233,8 @@ export function CandlestickChartCanvas({
       const chartHeight = height - padding.top - padding.bottom;
 
       // Clear canvas
-      ctx.fillStyle = '#0a0a0f';
+      // ctx.fillStyle = '#0a0a0f';
       ctx.fillRect(0, 0, width, height);
-
-      // Add reddish-brown background overlay when rugged
-      if (gameEnded && !isHistoryMode && rugAnimationProgress > 0.3) {
-        const gradient = ctx.createLinearGradient(0, 0, 0, height);
-        gradient.addColorStop(0, 'rgba(26, 15, 15, 0.6)'); // Reddish-brown top
-        gradient.addColorStop(1, 'rgba(45, 21, 21, 0.6)'); // Reddish-brown bottom
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, width, height);
-      }
 
       // Value to Y coordinate converter
       const valueToY = (value: number) => {
@@ -208,29 +245,25 @@ export function CandlestickChartCanvas({
       // Draw grid lines
       drawGrid(ctx, padding, chartWidth, chartHeight, yRange.min, yRange.max, valueToY);
 
-      // Draw Y-axis
-      drawYAxis(ctx, padding, chartWidth, chartHeight, yRange.min, yRange.max);
+      // Draw Y-axis (only if showYAxis is true)
+      if (showYAxis) {
+        drawYAxis(ctx, padding, chartWidth, chartHeight, yRange.min, yRange.max);
+      }
 
-      // Draw "RUGGED" text behind candles
-      if (gameEnded && !isHistoryMode && rugAnimationProgress > 0.3) {
-        drawRuggedText(ctx, width, height);
+      if (gameEnded && !isHistoryMode) {
+        drawGameOverText(ctx, width, height);
       }
 
       // Get candles to draw
       const displayCandles = getDisplayCandles();
 
-      // Filter out incomplete current candle during rug to prevent double bars
-      const candlesToDraw = gameEnded && !isHistoryMode
-        ? displayCandles.filter(c => c.isComplete)
-        : displayCandles;
-
       // Draw candles
-      if (candlesToDraw.length > 0) {
-        drawCandles(ctx, candlesToDraw, currentCandle, padding, chartWidth, chartHeight, valueToY, isHistoryMode);
+      if (displayCandles.length > 0) {
+        drawCandles(ctx, displayCandles, currentCandle, padding, chartWidth, chartHeight, valueToY, isHistoryMode);
       }
 
       // Draw current price line (live mode only)
-      if (!isHistoryMode && currentPrice > 0 && status === 'running') {
+      if (!isHistoryMode && currentPrice > 0) {
         let displayPrice = currentPrice;
 
         // Rug animation
@@ -244,12 +277,9 @@ export function CandlestickChartCanvas({
           }
         }
 
-        // Determine color based on current price vs current candle open
-        const currentCandleOpen = currentCandle?.open || 1.0;
-        const isGreen = currentPrice >= currentCandleOpen;
-
-        drawCurrentPriceLine(ctx, displayPrice, padding, chartWidth, valueToY, isGreen);
+        drawCurrentPriceLine(ctx, displayPrice, padding, chartWidth, valueToY);
       }
+
 
       animationFrameRef.current = requestAnimationFrame(render);
     };
@@ -424,16 +454,12 @@ function drawCurrentPriceLine(
   price: number,
   padding: any,
   chartWidth: number,
-  valueToY: (value: number) => number,
-  isGreen: boolean = true
+  valueToY: (value: number) => number
 ) {
   const y = valueToY(price);
 
-  // Determine color based on price direction
-  const color = isGreen ? '#26a69a' : '#ef5350';
-
   // Draw dotted line
-  ctx.strokeStyle = color;
+  ctx.strokeStyle = '#58a6ff';
   ctx.lineWidth = 2;
   ctx.setLineDash([5, 5]);
   ctx.beginPath();
@@ -443,14 +469,14 @@ function drawCurrentPriceLine(
   ctx.setLineDash([]);
 
   // Draw price label (10px above the line)
-  ctx.fillStyle = color;
+  ctx.fillStyle = '#58a6ff';
   ctx.font = 'bold 14px monospace';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'bottom';
   ctx.fillText(`${price.toFixed(2)}x`, padding.left + 10, y - 10);
 }
 
-function drawRuggedText(
+function drawGameOverText(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number
@@ -463,14 +489,18 @@ function drawRuggedText(
   // Rotate 10 degrees left (counter-clockwise)
   ctx.rotate(-10 * Math.PI / 180);
 
-  // Draw text
-  ctx.font = 'bold 72px monospace';
-  ctx.fillStyle = '#cc2222';
+  // Draw text shadow for better visibility
+  ctx.font = 'bold 108px monospace';
+  ctx.fillStyle = '#000000';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.globalAlpha = 0.4; // Semi-transparent (behind candles effect)
+  ctx.globalAlpha = 0.5;
+  ctx.fillText('GAME OVER', 2, 2);
 
-  ctx.fillText('RUGGED', 0, 0);
+  // Draw main text
+  ctx.fillStyle = '#ef4444';
+  ctx.globalAlpha = 0.9;
+  ctx.fillText('GAME OVER', 0, 0);
 
   ctx.restore();
 }

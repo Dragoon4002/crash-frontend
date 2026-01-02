@@ -136,6 +136,18 @@ export function useUnifiedWebSocket(wsUrl: string) {
             console.log('👥 Active bettors updated:', message.bettors?.length || 0);
             break;
 
+          case 'crash_cashout_result':
+            // Show notification to user
+            const profit = message.profit || 0;
+            const profitSign = profit >= 0 ? '+' : '';
+            console.log(`💰 Cashout successful! ${profitSign}${profit.toFixed(4)} MNT`);
+
+            // Could add a toast notification here
+            if (typeof window !== 'undefined' && window.alert) {
+              alert(`✅ ${message.message}\n\nProfit: ${profitSign}${profit.toFixed(4)} MNT`);
+            }
+            break;
+
           default:
             console.log('📨 Unhandled message type:', message.type);
         }

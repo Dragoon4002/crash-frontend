@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useGameHouseContract } from '@/hooks/useGameHouseContract';
+import { useWebSocket } from '@/contexts/WebSocketContext';
 import { ethers } from 'ethers';
 
 interface TradingPanelProps {
@@ -12,31 +13,13 @@ interface TradingPanelProps {
 }
 
 export function TradingPanel({ gameId, currentMultiplier, status, isRugged = false }: TradingPanelProps) {
-  const { buyIn, cashOut, getActiveCrashBet, isConnected } = useGameHouseContract();
+  const { bet, isConnected, getWalletAddress } = useGameHouseContract();
+  const { sendMessage, clientId } = useWebSocket();
 
   const [betAmount, setBetAmount] = useState(0);
   const [hasBet, setHasBet] = useState(false);
   const [entryMultiplier, setEntryMultiplier] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
-
-  // Check if player has active bet
-  useEffect(() => {
-    async function checkActiveBet() {
-      if (!gameId || !isConnected) return;
-
-      try {
-        const betId = await getActiveCrashBet(
-          window.ethereum?.selectedAddress || '',
-          parseInt(gameId, 10)
-        );
-        setHasBet(betId > BigInt(0));
-      } catch (error) {
-        console.error('Error checking active bet:', error);
-      }
-    }
-
-    checkActiveBet();
-  }, [gameId, isConnected, getActiveCrashBet]);
 
   // Reset bet state when game gets rugged or crashes
   useEffect(() => {
@@ -81,69 +64,58 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
 
   const handleBuyIn = async () => {
     if (!gameId || !isConnected) {
-      alert('Wallet not connected or game not started!');
+      console.warn('Wallet not connected or game not started');
       return;
     }
 
     if (betAmount <= 0) {
-      alert('Please enter a bet amount!');
+      console.warn('Invalid bet amount');
       return;
     }
 
     setIsProcessing(true);
 
     try {
-      const result = await buyIn(
-        parseInt(gameId, 10),
-        currentMultiplier,
-        betAmount
-      );
-
-      if (result.success) {
-        console.log('✅ Buy-in successful! Bet ID:', result.betId);
-
-        // Immediately update local state
-        setHasBet(true);
-        setEntryMultiplier(currentMultiplier);
-
-        // Notify server about new active bettor
-        try {
-          const playerAddress = window.ethereum?.selectedAddress || '';
-          await fetch('http://localhost:8080/api/bettor/add', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              address: playerAddress,
-              betAmount: betAmount,
-              multiplier: currentMultiplier,
-            }),
-          });
-          console.log('✅ Server notified of new bettor');
-        } catch (error) {
-          console.error('⚠️ Failed to notify server:', error);
-        }
-
-        alert(`Buy-in successful!\nBet ID: ${result.betId}\nEntry: ${currentMultiplier.toFixed(2)}x`);
-
-        // Verify contract state after short delay
-        setTimeout(async () => {
-          try {
-            const betId = await getActiveCrashBet(
-              window.ethereum?.selectedAddress || '',
-              parseInt(gameId, 10)
-            );
-            setHasBet(betId > BigInt(0));
-            console.log('✅ Contract state verified: hasBet =', betId > BigInt(0));
-          } catch (error) {
-            console.error('Error verifying bet state:', error);
-          }
-        }, 1000);
-      } else {
-        alert(`Buy-in failed: ${result.error}`);
+      // Get wallet address
+      const playerAddress = await getWalletAddress();
+      if (!playerAddress) {
+        alert('Failed to get wallet address. Please reconnect your wallet.');
+        setIsProcessing(false);
+        return;
       }
-    } catch (error) {
+
+      // Step 1: Place bet on contract
+      console.log('🎲 Placing bet on contract...');
+      const betResult = await bet(betAmount);
+
+      if (!betResult.success) {
+        alert(`Bet failed: ${betResult.error}`);
+        setIsProcessing(false);
+        return;
+      }
+
+      console.log('✅ Bet placed on contract:', betResult.transactionHash);
+
+      // Step 2: Update local state
+      setHasBet(true);
+      setEntryMultiplier(currentMultiplier);
+
+      // Step 3: Notify server to add to active bettors list and store in DB
+      sendMessage('crash_bet_placed', {
+        playerAddress: playerAddress,
+        userId: clientId,
+        gameId: gameId,
+        betAmount: betAmount,
+        entryMultiplier: currentMultiplier,
+        transactionHash: betResult.transactionHash,
+      });
+
+      console.log(`✅ Bet placed at ${currentMultiplier.toFixed(2)}x with ${betAmount} MNT`);
+    } catch (error: any) {
       console.error('Buy-in error:', error);
-      alert('Buy-in failed!');
+      alert(`Failed to place bet: ${error.message || 'Unknown error'}`);
+      setHasBet(false);
+      setEntryMultiplier(0);
     } finally {
       setIsProcessing(false);
     }
@@ -154,59 +126,40 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
 
     // Prevent cashout if game is rugged
     if (isRugged) {
-      alert('⚠️ Game has rugged!\nYour bet is lost. Cannot cash out.');
+      console.warn('⚠️ Game has rugged - cannot cash out');
       return;
     }
 
     setIsProcessing(true);
 
     try {
-      const result = await cashOut(parseInt(gameId, 10), currentMultiplier);
-
-      if (result.success && result.payout) {
-        const payoutMNT = ethers.formatEther(result.payout);
-        console.log('✅ Cashed out! Payout:', payoutMNT, 'MNT');
-
-        // Immediately update local state
-        setHasBet(false);
-        setEntryMultiplier(0);
-
-        // Notify server to remove active bettor
-        try {
-          const playerAddress = window.ethereum?.selectedAddress || '';
-          await fetch('http://localhost:8080/api/bettor/remove', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              address: playerAddress,
-            }),
-          });
-          console.log('✅ Server notified of bettor cashout');
-        } catch (error) {
-          console.error('⚠️ Failed to notify server:', error);
-        }
-
-        alert(`Cashed out!\nPayout: ${payoutMNT} MNT\nMultiplier: ${currentMultiplier.toFixed(2)}x`);
-
-        // Verify contract state after short delay
-        setTimeout(async () => {
-          try {
-            const betId = await getActiveCrashBet(
-              window.ethereum?.selectedAddress || '',
-              parseInt(gameId, 10)
-            );
-            setHasBet(betId > BigInt(0));
-            console.log('✅ Contract state verified: hasBet =', betId > BigInt(0));
-          } catch (error) {
-            console.error('Error verifying bet state:', error);
-          }
-        }, 1000);
-      } else {
-        alert(`Cash-out failed: ${result.error}`);
+      // Get wallet address
+      const playerAddress = await getWalletAddress();
+      if (!playerAddress) {
+        alert('Failed to get wallet address.');
+        setIsProcessing(false);
+        return;
       }
-    } catch (error) {
+
+      // Send cashout request to server
+      // Server will calculate payout and call payPlayer contract function
+      sendMessage('crash_cashout', {
+        playerAddress: playerAddress,
+        userId: clientId,
+        gameId: gameId,
+        cashoutMultiplier: currentMultiplier,
+        betAmount: betAmount,
+        entryMultiplier: entryMultiplier,
+      });
+
+      console.log(`📤 Cashout request sent at ${currentMultiplier.toFixed(2)}x`);
+
+      // Update local state immediately (server will confirm)
+      setHasBet(false);
+      setEntryMultiplier(0);
+    } catch (error: any) {
       console.error('Cash-out error:', error);
-      alert('Cash-out failed!');
+      alert(`Failed to cash out: ${error.message || 'Unknown error'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -305,17 +258,46 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
       {/* Right side - Buy/Sell buttons - 1/3 width */}
       <div className="flex-1 flex flex-col justify-center">
         {!hasBet ? (
-          <button
-            onClick={handleBuyIn}
-            disabled={!canBuyIn}
-            className={`w-full py-4 rounded-lg font-bold text-sm transition-all ${
-              canBuyIn
-                ? 'bg-green-500 hover:bg-green-600 text-white'
-                : 'bg-gray-700 text-gray-400 cursor-not-allowed'
-            }`}
-          >
-            {isProcessing ? 'Processing...' : `BUY @ ${currentMultiplier.toFixed(2)}x`}
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={handleBuyIn}
+              disabled={!canBuyIn}
+              className={`w-full py-4 rounded-lg font-bold text-sm transition-all ${
+                canBuyIn
+                  ? 'bg-green-500 hover:bg-green-600 text-white'
+                  : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {isProcessing ? 'Processing...' : `BUY @ ${currentMultiplier.toFixed(2)}x`}
+            </button>
+
+            {/* Disabled reason messages */}
+            {!canBuyIn && (
+              <div className="text-xs text-center mt-2">
+                {!isConnected && (
+                  <span className="text-red-400">🔒 Wallet not connected</span>
+                )}
+                {isConnected && betAmount <= 0 && (
+                  <span className="text-yellow-400">⚠️ Enter bet amount</span>
+                )}
+                {isConnected && betAmount > 0 && status === 'connecting' && (
+                  <span className="text-blue-400">⏳ Connecting to game...</span>
+                )}
+                {isConnected && betAmount > 0 && status === 'crashed' && (
+                  <span className="text-gray-400">⏸️ Game ended - wait for next round</span>
+                )}
+                {isConnected && betAmount > 0 && (!gameId || gameId === '') && (
+                  <span className="text-gray-400">⏸️ Waiting for game to start...</span>
+                )}
+                {isConnected && betAmount > 0 && hasBet && (
+                  <span className="text-gray-400">✅ Already placed bet</span>
+                )}
+                {isRugged && (
+                  <span className="text-red-500">⚠️ Game rugged</span>
+                )}
+              </div>
+            )}
+          </div>
         ) : (
           <div className="space-y-2">
             <div className="bg-[#14141f] border border-green-500 rounded-lg p-2 text-center">
@@ -339,23 +321,21 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
                 ? 'CRASHED'
                 : `SELL @ ${currentMultiplier.toFixed(2)}x`}
             </button>
-          </div>
-        )}
 
-        {/* Status messages */}
-        {!isConnected && (
-          <div className="text-xs text-red-400 text-center mt-2">
-            Wallet not connected
-          </div>
-        )}
-        {isRugged && (
-          <div className="text-xs text-red-500 font-bold text-center mt-2 bg-red-500/10 border border-red-500/30 rounded px-2 py-1">
-            ⚠️ GAME RUGGED - Cannot cashout
-          </div>
-        )}
-        {status === 'crashed' && !isRugged && hasBet && (
-          <div className="text-xs text-orange-400 text-center mt-2">
-            Game crashed - Bet lost
+            {/* Cashout disabled reasons */}
+            {!canCashOut && hasBet && (
+              <div className="text-xs text-center mt-2">
+                {isRugged && (
+                  <span className="text-red-500 font-bold">⚠️ GAME RUGGED - Bet lost</span>
+                )}
+                {!isRugged && status === 'crashed' && (
+                  <span className="text-orange-400">💥 Game crashed - Bet lost</span>
+                )}
+                {!isRugged && status === 'countdown' && (
+                  <span className="text-gray-400">⏸️ Game not started yet</span>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -20,6 +20,7 @@ export interface UseAdvancedCrashGameReturn {
   targetValue: number;
   countdown: number;
   groups: CandleGroup[];
+  currentCandle?: CandleGroup;
   gameId: string;
   rugged: boolean;
   reconnect: () => void;
@@ -38,6 +39,7 @@ interface GameStartMessage {
 interface PriceUpdateMessage {
   type: 'price_update';
   data: {
+    gameId?: string;
     tick: number;
     price: number;
     multiplier: number;
@@ -64,7 +66,7 @@ interface GameEndMessage {
 
 type ServerMessage = GameStartMessage | PriceUpdateMessage | GameEndMessage;
 
-const COUNTDOWN_DURATION = 10.0; // 10 seconds
+const COUNTDOWN_DURATION = 5.0; // 5 seconds
 const COUNTDOWN_TICK_MS = 100; // 100ms per tick
 const INTERPOLATION_TICK_MS = 50; // 50ms interpolation
 
@@ -76,6 +78,7 @@ export function useAdvancedCrashGame(): UseAdvancedCrashGameReturn {
   const [targetValue, setTargetValue] = useState<number>(1.0);
   const [countdown, setCountdown] = useState<number>(COUNTDOWN_DURATION);
   const [groups, setGroups] = useState<CandleGroup[]>([]);
+  const [currentCandle, setCurrentCandle] = useState<CandleGroup | undefined>(undefined);
   const [gameId, setGameId] = useState<string>('');
   const [rugged, setRugged] = useState<boolean>(false);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -115,9 +118,17 @@ export function useAdvancedCrashGame(): UseAdvancedCrashGameReturn {
       const newTarget = message.data.price;
       setTargetValue(newTarget);
 
-      // Update groups
+      // Set gameId if provided and not already set (for mid-game joins)
+      if (message.data.gameId) {
+        setGameId((currentGameId) => currentGameId || message.data.gameId!);
+      }
+
+      // Update groups and current candle
       if (message.data.previousCandles) {
         setGroups(message.data.previousCandles);
+      }
+      if (message.data.currentCandle) {
+        setCurrentCandle(message.data.currentCandle);
       }
 
       setStatus('running');
@@ -178,6 +189,7 @@ export function useAdvancedCrashGame(): UseAdvancedCrashGameReturn {
     targetValue,
     countdown,
     groups,
+    currentCandle,
     gameId,
     rugged,
     reconnect

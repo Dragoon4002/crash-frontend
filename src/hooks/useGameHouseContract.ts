@@ -1,24 +1,27 @@
 /**
  * useGameHouseContract Hook
  *
- * Provides contract interaction methods for GameHouseV2
+ * Provides contract interaction methods for GameHouseNoSig
  * Integrates with Privy wallet for transaction signing
  */
 
 import { useCallback, useMemo } from 'react';
 import { ethers } from 'ethers';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
-import GameHouseV2ABI from '@/contracts/GameHouseV2.json';
-import { GAME_HOUSE_V2_CONFIG } from '@/contracts/config';
-import type {
-  BuyInResult,
-  CashOutResult,
-  PlaceCandleFlipResult,
-  CrashBet,
-  CandleFlipGame,
-  MultiplierValue,
-  EtherValue,
-} from '@/contracts/types';
+import { GAME_HOUSE_CONTRACT } from '@/contracts/config';
+
+export interface BetResult {
+  success: boolean;
+  transactionHash?: string;
+  error?: string;
+}
+
+export interface HouseState {
+  houseBalance: bigint;
+  minLiquidity: bigint;
+  maxPayoutPerTx: bigint;
+  paused: boolean;
+}
 
 export function useGameHouseContract() {
   const { authenticated } = usePrivy();
@@ -89,8 +92,8 @@ export function useGameHouseContract() {
     const signer = await getSigner();
 
     return new ethers.Contract(
-      GAME_HOUSE_V2_CONFIG.address,
-      GameHouseV2ABI.abi,
+      GAME_HOUSE_CONTRACT.address,
+      GAME_HOUSE_CONTRACT.abi,
       signer
     );
   }, [getSigner]);
@@ -98,48 +101,34 @@ export function useGameHouseContract() {
   // Get read-only contract instance (no signer needed)
   const getReadContract = useMemo(() => {
     const provider = new ethers.JsonRpcProvider(
-      GAME_HOUSE_V2_CONFIG.network.rpcUrl
+      GAME_HOUSE_CONTRACT.network.rpcUrl
     );
 
     return new ethers.Contract(
-      GAME_HOUSE_V2_CONFIG.address,
-      GameHouseV2ABI.abi,
+      GAME_HOUSE_CONTRACT.address,
+      GAME_HOUSE_CONTRACT.abi,
       provider
     );
   }, []);
 
-  /* ======================================
-     CRASH GAME FUNCTIONS
-  ====================================== */
-
   /**
-   * Buy into a crash game
-   * @param gameId Server-generated game ID
-   * @param entryMultiplier Multiplier at entry (e.g., 1.5 for 1.5x)
+   * Place a bet by sending MNT to the contract
    * @param betAmount Bet amount in MNT (e.g., 0.1)
    */
-  const buyIn = useCallback(
-    async (
-      gameId: number | bigint,
-      entryMultiplier: MultiplierValue,
-      betAmount: EtherValue
-    ): Promise<BuyInResult> => {
+  const bet = useCallback(
+    async (betAmount: number | string): Promise<BetResult> => {
       try {
         const contract = await getContract();
 
-        // Convert values
-        const gameIdBN = BigInt(gameId);
-        const multiplierWei = ethers.parseEther(entryMultiplier.toString());
         const betWei = ethers.parseEther(betAmount.toString());
 
-        console.log('🎮 Buying in:', {
-          gameId: gameIdBN.toString(),
-          multiplier: entryMultiplier,
-          bet: betAmount,
+        console.log('🎮 Placing bet:', {
+          amount: betAmount,
+          wei: betWei.toString(),
         });
 
-        // Call contract
-        const tx = await contract.buyIn(gameIdBN, multiplierWei, {
+        // Call contract bet() function
+        const tx = await contract.bet({
           value: betWei,
         });
 
@@ -150,38 +139,21 @@ export function useGameHouseContract() {
 
         console.log('✅ Transaction confirmed:', receipt.hash);
 
-        // Extract betId from event
-        const event = receipt.logs.find((log: any) => {
-          try {
-            const parsed = contract.interface.parseLog(log);
-            return parsed?.name === 'CrashBuyIn';
-          } catch {
-            return false;
-          }
-        });
-
-        let betId: bigint | undefined;
-        if (event) {
-          const parsed = contract.interface.parseLog(event);
-          betId = parsed?.args.betId;
-        }
-
         return {
           success: true,
           transactionHash: receipt.hash,
-          betId,
         };
       } catch (error: any) {
-        console.error('❌ Buy-in failed:', error);
+        console.error('❌ Bet failed:', error);
 
         // Parse error message
         let errorMsg = 'Transaction failed';
         if (error.code === 'ACTION_REJECTED') {
           errorMsg = 'User rejected transaction';
-        } else if (error.message?.includes('MUST_CASHOUT_FIRST')) {
-          errorMsg = 'You must cash out your current bet first!';
-        } else if (error.message?.includes('GAME_RUGGED')) {
-          errorMsg = 'This game has already rugged!';
+        } else if (error.message?.includes('Paused')) {
+          errorMsg = 'Contract is paused';
+        } else if (error.message?.includes('ZeroValue')) {
+          errorMsg = 'Bet amount must be greater than 0';
         } else if (error.message?.includes('insufficient funds')) {
           errorMsg = 'Insufficient MNT balance';
         }
@@ -196,65 +168,37 @@ export function useGameHouseContract() {
   );
 
   /**
-   * Cash out from a crash game
-   * @param gameId Game ID to cash out from
-   * @param currentMultiplier Current multiplier (e.g., 3.0)
+   * Fund the house (owner only)
+   * @param amount Amount in MNT
    */
-  const cashOut = useCallback(
-    async (
-      gameId: number | bigint,
-      currentMultiplier: MultiplierValue
-    ): Promise<CashOutResult> => {
+  const fundHouse = useCallback(
+    async (amount: number | string): Promise<BetResult> => {
       try {
         const contract = await getContract();
+        const amountWei = ethers.parseEther(amount.toString());
 
-        const gameIdBN = BigInt(gameId);
-        const multiplierWei = ethers.parseEther(currentMultiplier.toString());
+        console.log('💰 Funding house:', amount, 'MNT');
 
-        console.log('💰 Cashing out:', {
-          gameId: gameIdBN.toString(),
-          multiplier: currentMultiplier,
+        const tx = await contract.fundHouse({
+          value: amountWei,
         });
 
-        const tx = await contract.cashOut(gameIdBN, multiplierWei);
         console.log('📝 Transaction sent:', tx.hash);
-
         const receipt = await tx.wait();
         console.log('✅ Transaction confirmed:', receipt.hash);
-
-        // Extract payout from event
-        const event = receipt.logs.find((log: any) => {
-          try {
-            const parsed = contract.interface.parseLog(log);
-            return parsed?.name === 'CrashCashOut';
-          } catch {
-            return false;
-          }
-        });
-
-        let payout: bigint | undefined;
-        if (event) {
-          const parsed = contract.interface.parseLog(event);
-          payout = parsed?.args.payout;
-        }
 
         return {
           success: true,
           transactionHash: receipt.hash,
-          payout,
         };
       } catch (error: any) {
-        console.error('❌ Cash-out failed:', error);
+        console.error('❌ Fund house failed:', error);
 
-        let errorMsg = 'Cash-out failed';
+        let errorMsg = 'Failed to fund house';
         if (error.code === 'ACTION_REJECTED') {
           errorMsg = 'User rejected transaction';
-        } else if (error.message?.includes('NO_ACTIVE_BET')) {
-          errorMsg = 'No active bet found in this game!';
-        } else if (error.message?.includes('GAME_RUGGED')) {
-          errorMsg = 'Game has already rugged!';
-        } else if (error.message?.includes('INVALID_CASHOUT')) {
-          errorMsg = 'Invalid cashout multiplier!';
+        } else if (error.message?.includes('ZeroValue')) {
+          errorMsg = 'Amount must be greater than 0';
         }
 
         return {
@@ -266,202 +210,99 @@ export function useGameHouseContract() {
     [getContract]
   );
 
-  /* ======================================
-     CANDLEFLIP FUNCTIONS
-  ====================================== */
-
   /**
-   * Place a CandleFlip game
-   * @param betPerRoom Bet amount per room in MNT (e.g., 0.1)
-   * @param rooms Number of rooms (e.g., 5)
+   * Get house state (read-only)
    */
-  const placeCandleFlip = useCallback(
-    async (
-      betPerRoom: EtherValue,
-      rooms: number
-    ): Promise<PlaceCandleFlipResult> => {
-      try {
-        const contract = await getContract();
-
-        const betPerRoomWei = ethers.parseEther(betPerRoom.toString());
-        const roomsBN = BigInt(rooms);
-        const totalBet = betPerRoomWei * roomsBN;
-
-        console.log('🎲 Placing CandleFlip:', {
-          betPerRoom,
-          rooms,
-          totalBet: ethers.formatEther(totalBet),
-        });
-
-        const tx = await contract.placeCandleFlip(betPerRoomWei, roomsBN, {
-          value: totalBet,
-        });
-
-        console.log('📝 Transaction sent:', tx.hash);
-
-        const receipt = await tx.wait();
-        console.log('✅ Transaction confirmed:', receipt.hash);
-
-        // Extract gameId from event
-        const event = receipt.logs.find((log: any) => {
-          try {
-            const parsed = contract.interface.parseLog(log);
-            return parsed?.name === 'CandlePlaced';
-          } catch {
-            return false;
-          }
-        });
-
-        let gameId: bigint | undefined;
-        if (event) {
-          const parsed = contract.interface.parseLog(event);
-          gameId = parsed?.args.gameId;
-        }
-
-        return {
-          success: true,
-          transactionHash: receipt.hash,
-          gameId,
-        };
-      } catch (error: any) {
-        console.error('❌ CandleFlip placement failed:', error);
-
-        let errorMsg = 'Failed to place CandleFlip';
-        if (error.code === 'ACTION_REJECTED') {
-          errorMsg = 'User rejected transaction';
-        } else if (error.message?.includes('BAD_VALUE')) {
-          errorMsg = 'Payment amount mismatch!';
-        } else if (error.message?.includes('ODDS_TOO_LOW')) {
-          errorMsg = 'House has insufficient liquidity!';
-        } else if (error.message?.includes('insufficient funds')) {
-          errorMsg = 'Insufficient MNT balance';
-        }
-
-        return {
-          success: false,
-          error: errorMsg,
-        };
-      }
-    },
-    [getContract]
-  );
-
-  /* ======================================
-     VIEW FUNCTIONS (No transaction)
-  ====================================== */
-
-  /**
-   * Get player's active crash bet ID for a game
-   */
-  const getActiveCrashBet = useCallback(
-    async (playerAddress: string, gameId: number | bigint): Promise<bigint> => {
-      const betId = await getReadContract.getActiveCrashBet(
-        playerAddress,
-        BigInt(gameId)
-      );
-      return betId;
-    },
-    [getReadContract]
-  );
-
-  /**
-   * Check if a crash game is rugged
-   */
-  const isGameRugged = useCallback(
-    async (gameId: number | bigint): Promise<boolean> => {
-      const rugged = await getReadContract.isGameRugged(BigInt(gameId));
-      return rugged;
-    },
-    [getReadContract]
-  );
-
-  /**
-   * Get crash bet details
-   */
-  const getCrashBet = useCallback(
-    async (betId: number | bigint): Promise<CrashBet> => {
-      const bet = await getReadContract.getCrashBet(BigInt(betId));
-      return {
-        player: bet.player,
-        gameId: bet.gameId,
-        betAmount: bet.betAmount,
-        entryMultiplier: bet.entryMultiplier,
-        cashoutMultiplier: bet.cashoutMultiplier,
-        state: bet.state,
-        payout: bet.payout,
-      };
-    },
-    [getReadContract]
-  );
-
-  /**
-   * Get CandleFlip game details
-   */
-  const getCandleGame = useCallback(
-    async (gameId: number | bigint): Promise<CandleFlipGame> => {
-      const game = await getReadContract.getCandleGame(BigInt(gameId));
-      return {
-        player: game.player,
-        betPerRoom: game.betPerRoom,
-        rooms: game.rooms,
-        exposure: game.exposure,
-        odds: game.odds,
-        roomsWon: game.roomsWon,
-        state: game.state,
-      };
-    },
-    [getReadContract]
-  );
-
-  /**
-   * Preview odds for a CandleFlip game
-   */
-  const previewOdds = useCallback(
-    async (betPerRoom: EtherValue, rooms: number): Promise<bigint> => {
-      const betPerRoomWei = ethers.parseEther(betPerRoom.toString());
-      const roomsBN = BigInt(rooms);
-      const odds = await getReadContract.previewOdds(betPerRoomWei, roomsBN);
-      return odds;
-    },
-    [getReadContract]
-  );
-
-  /**
-   * Get house state
-   */
-  const getHouseState = useCallback(async () => {
-    const [houseBalance, activeExposure, availableBalance] = await Promise.all([
+  const getHouseState = useCallback(async (): Promise<HouseState> => {
+    const [houseBalance, minLiquidity, maxPayoutPerTx, paused] = await Promise.all([
       getReadContract.houseBalance(),
-      getReadContract.activeExposure(),
-      getReadContract.getAvailableBalance(),
+      getReadContract.minLiquidity(),
+      getReadContract.maxPayoutPerTx(),
+      getReadContract.paused(),
     ]);
 
     return {
       houseBalance,
-      activeExposure,
-      availableBalance,
+      minLiquidity,
+      maxPayoutPerTx,
+      paused,
     };
   }, [getReadContract]);
 
+  /**
+   * Pay out winnings to a player (server only)
+   * This should be called from the backend
+   * @param playerAddress Address of the player
+   * @param payoutAmount Amount to pay in MNT
+   */
+  const payPlayer = useCallback(
+    async (playerAddress: string, payoutAmount: number | string): Promise<BetResult> => {
+      try {
+        const contract = await getContract();
+        const payoutWei = ethers.parseEther(payoutAmount.toString());
+
+        console.log('💰 Paying player:', {
+          address: playerAddress,
+          amount: payoutAmount,
+          wei: payoutWei.toString(),
+        });
+
+        const tx = await contract.payPlayer(playerAddress, payoutWei);
+
+        console.log('📝 Payout transaction sent:', tx.hash);
+        const receipt = await tx.wait();
+        console.log('✅ Payout confirmed:', receipt.hash);
+
+        return {
+          success: true,
+          transactionHash: receipt.hash,
+        };
+      } catch (error: any) {
+        console.error('❌ Payout failed:', error);
+
+        let errorMsg = 'Payout failed';
+        if (error.code === 'ACTION_REJECTED') {
+          errorMsg = 'User rejected transaction';
+        } else if (error.message?.includes('NotServer')) {
+          errorMsg = 'Only server can pay players';
+        } else if (error.message?.includes('Insolvent')) {
+          errorMsg = 'Insufficient house balance';
+        }
+
+        return {
+          success: false,
+          error: errorMsg,
+        };
+      }
+    },
+    [getContract]
+  );
+
+  /**
+   * Get current user's wallet address
+   */
+  const getWalletAddress = useCallback(async (): Promise<string | null> => {
+    if (!authenticated || wallets.length === 0) {
+      return null;
+    }
+
+    const wallet = wallets[0];
+    return wallet.address;
+  }, [authenticated, wallets]);
+
   return {
     // Contract info
-    address: GAME_HOUSE_V2_CONFIG.address,
-    network: GAME_HOUSE_V2_CONFIG.network,
+    address: GAME_HOUSE_CONTRACT.address,
+    network: GAME_HOUSE_CONTRACT.network,
 
-    // Crash game
-    buyIn,
-    cashOut,
-
-    // CandleFlip
-    placeCandleFlip,
+    // Main functions
+    bet,
+    payPlayer,
+    fundHouse,
 
     // View functions
-    getActiveCrashBet,
-    isGameRugged,
-    getCrashBet,
-    getCandleGame,
-    previewOdds,
     getHouseState,
+    getWalletAddress,
 
     // Utilities
     isConnected: authenticated && wallets.length > 0,

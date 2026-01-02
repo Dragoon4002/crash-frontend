@@ -27,6 +27,7 @@ interface GameStartMessage {
 interface PriceUpdateMessage {
   type: 'price_update';
   data: {
+    gameId?: string;
     tick: number;
     price: number;
     multiplier: number;
@@ -113,6 +114,11 @@ export function useCrashGame(wsUrl: string = 'ws://localhost:8080/ws'): UseCrash
             setMultiplier(message.data.multiplier);
             setConnectedUsers(message.data.connectedUsers);
             setFinalPrice(message.data.price); // Keep track of latest price
+
+            // Set gameId if provided and not already set (for mid-game joins)
+            if (message.data.gameId) {
+              setGameId((currentGameId) => currentGameId || message.data.gameId!);
+            }
 
             // Add to history for candlestick chart
             setHistory((prev) => {

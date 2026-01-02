@@ -10,14 +10,8 @@ export function getRandomBot(): { name: string; emoji: string } {
   return BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)];
 }
 
-// Generate consistent bot for a room (same roomId always gets same bot)
+// Generate consistent bot for a room (always returns AI)
 export function getBotForRoom(roomId: string): { name: string; emoji: string } {
-  // Simple hash function to convert roomId to index
-  let hash = 0;
-  for (let i = 0; i < roomId.length; i++) {
-    hash = ((hash << 5) - hash) + roomId.charCodeAt(i);
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  const index = Math.abs(hash) % BOT_NAMES.length;
-  return BOT_NAMES[index];
+  // Always return AI bot for consistency
+  return { name: 'AI', emoji: '🤖' };
 }

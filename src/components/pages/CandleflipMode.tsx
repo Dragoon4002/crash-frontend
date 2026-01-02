@@ -9,7 +9,7 @@ import { useGameHouseContract } from '@/hooks/useGameHouseContract';
 
 export function CandleflipMode() {
   const { rooms, isConnected, clientId, createRoom, subscribe, unsubscribe } = useWebSocket();
-  const { placeCandleFlip, isConnected: walletConnected } = useGameHouseContract();
+  const { bet, isConnected: walletConnected, getWalletAddress } = useGameHouseContract();
 
   useEffect(() => {
     subscribe('rooms');
@@ -41,31 +41,43 @@ export function CandleflipMode() {
     setIsPlacing(true);
 
     try {
-      // Call smart contract to place CandleFlip
-      const result = await placeCandleFlip(betAmount, numberOfRooms);
+      // Get player's wallet address
+      const playerAddress = await getWalletAddress();
+      if (!playerAddress) {
+        alert('Failed to get wallet address. Please reconnect your wallet.');
+        setIsPlacing(false);
+        return;
+      }
 
-      if (result.success && result.gameId) {
-        console.log('✅ CandleFlip placed! Game ID:', result.gameId);
+      console.log('🎮 Creating rooms for player:', playerAddress);
 
-        // Now create rooms on server with the contract gameId
+      // Calculate total bet amount for all rooms
+      const totalBet = betAmount * numberOfRooms;
+
+      // Call smart contract bet() function
+      const result = await bet(totalBet);
+
+      if (result.success && result.transactionHash) {
+        console.log('✅ Bet placed! TX:', result.transactionHash);
+
+        // Use current timestamp as game ID
         const timestamp = Date.now();
         const botNameSeed = `${clientId}-${timestamp}`;
-        const contractGameId = result.gameId.toString();
+        const contractGameId = timestamp.toString();
 
+        // Create rooms on server with player's actual wallet address
         Array.from({ length: numberOfRooms }, (_, index) => {
           const roomId = `${timestamp}-${index}`;
-          // Pass contract gameId to server
-          createRoom(roomId, 'candleflip', betAmount, trend, clientId, botNameSeed, contractGameId, numberOfRooms);
+          createRoom(roomId, 'candleflip', betAmount, trend, playerAddress, botNameSeed, contractGameId, numberOfRooms);
         });
 
-        // Show success message
-        // alert(`CandleFlip created! Game ID: ${result.gameId}\nTransaction: ${result.transactionHash}`);
+        console.log(`✅ Created ${numberOfRooms} rooms for player ${playerAddress}`);
       } else {
-        alert(`Failed to place CandleFlip: ${result.error}`);
+        alert(`Failed to place bet: ${result.error}`);
       }
     } catch (error) {
-      console.error('Error placing CandleFlip:', error);
-      alert('Failed to place CandleFlip!');
+      console.error('Error placing bet:', error);
+      alert('Failed to place bet!');
     } finally {
       setIsPlacing(false);
     }

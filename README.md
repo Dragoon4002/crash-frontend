@@ -71,17 +71,22 @@ A comprehensive crypto trading and betting platform with three game modes: Stand
 
 ```
 src/
+├── app/                      # Next.js app directory
 ├── components/
-│   ├── ui/                    # shadcn components
+│   ├── ui/                   # shadcn components
 │   ├── layout/               # Layout components
 │   ├── trading/              # Trading components
 │   ├── candleflip/           # Candleflip components
 │   ├── chat/                 # Chat components
 │   ├── leaderboard/          # Leaderboard components
 │   └── pages/                # Page components
-├── lib/                      # Utilities & types
+├── contexts/                 # React contexts
+├── contracts/                # Contract ABIs
+├── hooks/                    # Custom React hooks
+├── lib/                      # Utilities & mock data
 ├── providers/                # Context providers
-└── app/                      # Next.js app directory
+├── types/                    # TypeScript types
+└── utils/                    # Helper utilities
 ```
 
 ## Color Scheme
@@ -113,14 +118,23 @@ NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
 NEXT_PUBLIC_PRIVY_CLIENT_ID=your_privy_client_id
 ```
 
+## Backend Connection
+
+The app connects to the Go backend via WebSocket:
+
+```
+ws://localhost:8080/ws           # Unified WebSocket (crash, chat, rooms)
+ws://localhost:8080/candleflip   # Candleflip game
+```
+
+Add to `.env.local`:
+```env
+NEXT_PUBLIC_WS_URL=ws://localhost:8080
+```
+
 ## Development
 
-The app uses mock data defined in `src/lib/mockData.ts`. To connect to real APIs:
-
-1. Create custom hooks in `src/hooks/` for data fetching
-2. Implement WebSocket connections for real-time updates
-3. Replace mock data with API calls
-4. Add state management (Zustand/Redux) if needed
+Mock data is available in `src/lib/mockData.ts` for offline development.
 
 ## Deploy on Vercel
 

@@ -1,29 +1,46 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { CandleflipRoomCard } from '@/components/candleflip/CandleflipRoomCard';
 import { TrendType } from '@/types/candleflip';
 import { TrendingUp, TrendingDown, Plus, Minus } from 'lucide-react';
 import { useWebSocket } from '@/contexts/WebSocketContext';
 import { useGameHouseContract } from '@/hooks/useGameHouseContract';
 
+interface ActiveBatch {
+  batchId: string;
+  roomCount: number;
+  betAmount: number;
+  trend: TrendType;
+  finishedRooms: Set<number>;
+}
+
 export function CandleflipMode() {
-  const { rooms, isConnected, clientId, createRoom, subscribe, unsubscribe } = useWebSocket();
+  const { isConnected } = useWebSocket();
   const { bet, isConnected: walletConnected, getWalletAddress } = useGameHouseContract();
 
-  useEffect(() => {
-    subscribe('rooms');
-    return () => unsubscribe('rooms');
-  }, [subscribe, unsubscribe]);
   const [betAmount, setBetAmount] = useState<number>(0.01);
   const [numberOfRooms, setNumberOfRooms] = useState<number>(1);
   const [trend, setTrend] = useState<TrendType>('bullish');
   const [balance] = useState<number>(10.0); // Mock balance
   const [isPlacing, setIsPlacing] = useState(false);
+  const [activeBatches, setActiveBatches] = useState<ActiveBatch[]>([]);
 
-  // Filter only candleflip rooms (include finished to show results)
-  const candleflipRooms = rooms.filter(room =>
-    room.gameType === 'candleflip'
+  const wsRef = useRef<WebSocket | null>(null);
+
+  // Cleanup WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, []);
+
+  // Count total active rooms across all batches
+  const totalActiveRooms = activeBatches.reduce((sum, batch) =>
+    sum + (batch.roomCount - batch.finishedRooms.size), 0
   );
 
   const quickAmounts = [0.01, 0.1, 0.5, 1, 5];
@@ -31,6 +48,21 @@ export function CandleflipMode() {
   const handleVerify = (gameId: string, serverSeed: string) => {
     console.log('Verify game:', gameId, serverSeed);
   };
+
+  const handleRoomFinished = useCallback((batchId: string, roomNumber: number) => {
+    setActiveBatches(prev => {
+      const updated = prev.map(batch => {
+        if (batch.batchId === batchId) {
+          const newFinished = new Set(batch.finishedRooms);
+          newFinished.add(roomNumber);
+          return { ...batch, finishedRooms: newFinished };
+        }
+        return batch;
+      });
+      // Remove batches where all rooms are finished
+      return updated.filter(batch => batch.finishedRooms.size < batch.roomCount);
+    });
+  }, []);
 
   const handleCreateRooms = async () => {
     if (!canPlaceBet || !isConnected || !walletConnected) {
@@ -49,7 +81,7 @@ export function CandleflipMode() {
         return;
       }
 
-      console.log('🎮 Creating rooms for player:', playerAddress);
+      console.log('🎮 Creating batch for player:', playerAddress);
 
       // Calculate total bet amount for all rooms
       const totalBet = betAmount * numberOfRooms;
@@ -60,18 +92,52 @@ export function CandleflipMode() {
       if (result.success && result.transactionHash) {
         console.log('✅ Bet placed! TX:', result.transactionHash);
 
-        // Use current timestamp as game ID
-        const timestamp = Date.now();
-        const botNameSeed = `${clientId}-${timestamp}`;
-        const contractGameId = timestamp.toString();
+        // Connect to /candleflip and create batch
+        const ws = new WebSocket(`${process.env.NEXT_PUBLIC_WS_URL}/candleflip`);
+        wsRef.current = ws;
 
-        // Create rooms on server with player's actual wallet address
-        Array.from({ length: numberOfRooms }, (_, index) => {
-          const roomId = `${timestamp}-${index}`;
-          createRoom(roomId, 'candleflip', betAmount, trend, playerAddress, botNameSeed, contractGameId, numberOfRooms);
-        });
+        ws.onopen = () => {
+          console.log('🔌 Connected to /candleflip, sending create_batch');
+          ws.send(JSON.stringify({
+            type: 'create_batch',
+            address: playerAddress,
+            roomCount: numberOfRooms,
+            amountPerRoom: String(Math.floor(betAmount * 1e18)), // wei
+            side: trend === 'bullish' ? 'bull' : 'bear'
+          }));
+        };
 
-        console.log(`✅ Created ${numberOfRooms} rooms for player ${playerAddress}`);
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            console.log('📨 Received from /candleflip:', msg.type);
+
+            if (msg.type === 'batch_created') {
+              const newBatch: ActiveBatch = {
+                batchId: msg.batchId,
+                roomCount: numberOfRooms,
+                betAmount: betAmount,
+                trend: trend,
+                finishedRooms: new Set()
+              };
+              setActiveBatches(prev => [...prev, newBatch]);
+              console.log(`✅ Batch created: ${msg.batchId} with ${numberOfRooms} rooms`);
+            } else if (msg.type === 'error') {
+              console.error('❌ Batch creation error:', msg.error);
+              alert(`Failed to create batch: ${msg.error}`);
+            }
+          } catch (err) {
+            console.error('Failed to parse message:', err);
+          }
+        };
+
+        ws.onerror = (error) => {
+          console.error('❌ WebSocket error:', error);
+        };
+
+        ws.onclose = () => {
+          console.log('🔌 Batch creation WebSocket closed');
+        };
       } else {
         alert(`Failed to place bet: ${result.error}`);
       }
@@ -92,21 +158,21 @@ export function CandleflipMode() {
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-300">
-              Open Lobbies <span className="text-primary">{candleflipRooms.length}</span>
+              Open Lobbies <span className="text-primary">{totalActiveRooms}</span>
             </h2>
             {!isConnected && (
               <p className="text-sm text-red-400">
                 Connecting to server...
               </p>
             )}
-            {isConnected && candleflipRooms.length === 0 && (
+            {isConnected && totalActiveRooms === 0 && (
               <p className="text-sm text-gray-500">
                 Configure your bet and click "Create" to start playing
               </p>
             )}
           </div>
 
-          {candleflipRooms.length === 0 ? (
+          {totalActiveRooms === 0 ? (
             <div className="flex items-center justify-center h-64 ">
               <div className="text-center">
                 <div className="text-6xl mb-4">🎮</div>
@@ -120,16 +186,21 @@ export function CandleflipMode() {
             </div>
           ) : (
             <div className="grid grid-cols-4 gap-4">
-              {candleflipRooms.map((room) => (
-                <CandleflipRoomCard
-                  key={room.roomId}
-                  roomId={room.roomId}
-                  betAmount={room.betAmount}
-                  trend={(room.trend as TrendType) || 'bullish'}
-                  onVerify={handleVerify}
-                  onFinished={() => {}}
-                />
-              ))}
+              {activeBatches.flatMap((batch) =>
+                Array.from({ length: batch.roomCount }, (_, i) => i + 1)
+                  .filter(roomNum => !batch.finishedRooms.has(roomNum))
+                  .map((roomNumber) => (
+                    <CandleflipRoomCard
+                      key={`${batch.batchId}-${roomNumber}`}
+                      batchId={batch.batchId}
+                      roomNumber={roomNumber}
+                      betAmount={batch.betAmount}
+                      trend={batch.trend}
+                      onVerify={handleVerify}
+                      onFinished={() => handleRoomFinished(batch.batchId, roomNumber)}
+                    />
+                  ))
+              )}
             </div>
           )}
         </div>

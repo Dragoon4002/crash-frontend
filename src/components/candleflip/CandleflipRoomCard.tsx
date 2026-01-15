@@ -8,38 +8,40 @@ import { Shield } from 'lucide-react';
 import { getBotForRoom } from '@/utils/botNames';
 
 interface CandleflipRoomCardProps {
-  roomId: string;
+  batchId: string;
+  roomNumber: number;
   betAmount: number;
   trend: TrendType;
-  onVerify: (gameId: string, serverSeed: string) => void;
-  onFinished: (roomId: string) => void;
+  onVerify?: (gameId: string, serverSeed: string) => void;
+  onFinished: () => void;
 }
 
-export function CandleflipRoomCard({ roomId, betAmount, trend, onVerify, onFinished }: CandleflipRoomCardProps) {
-  const { countdownMessage, ...gameState } = useCandleflipRoom(`${process.env.NEXT_PUBLIC_WS_URL}/candleflip`, roomId);
+export function CandleflipRoomCard({ batchId, roomNumber, betAmount, trend, onVerify, onFinished }: CandleflipRoomCardProps) {
+  const { countdownMessage, ...gameState } = useCandleflipRoom(`${process.env.NEXT_PUBLIC_WS_URL}/candleflip`, batchId, roomNumber);
 
-  // Get bot opponent for this room (consistent per roomId)
-  const bot = getBotForRoom(roomId);
+  // Get bot opponent for this room (consistent per batchId + roomNumber)
+  const roomKey = `${batchId}-${roomNumber}`;
+  const bot = getBotForRoom(roomKey);
 
-  // Use roomId as userId placeholder (until WebSocket ID is available)
-  const userId = `User-${roomId.slice(0, 8)}`;
+  // Use batchId as userId placeholder
+  const userId = `User-${batchId.slice(0, 12)}`;
 
   // Auto-delete room after game finishes (with delay to show result)
   useEffect(() => {
     if (gameState.status === 'finished') {
       // Wait 5 seconds to show the result, then remove the room
       const timer = setTimeout(() => {
-        onFinished(roomId);
+        onFinished();
       }, 5000);
 
       return () => clearTimeout(timer);
     }
-  }, [gameState.status, roomId, onFinished]);
+  }, [gameState.status, onFinished]);
 
   const handleVerify = () => {
-    if (gameState.gameId && gameState.serverSeed) {
+    if (gameState.gameId && gameState.serverSeed && onVerify) {
       onVerify(gameState.gameId, gameState.serverSeed);
-    } else {
+    } else if (!gameState.serverSeed) {
       alert('Game has not ended yet. Please wait for the results.');
     }
   };
@@ -136,7 +138,7 @@ export function CandleflipRoomCard({ roomId, betAmount, trend, onVerify, onFinis
 
       {/* Room ID Badge */}
       <div className="absolute bottom-12 left-2 bg-background/90 px-2 py-1 rounded text-xs text-gray-400 border border-border">
-        Room #{roomId}
+        Room #{roomNumber}
       </div>
     </div>
   );

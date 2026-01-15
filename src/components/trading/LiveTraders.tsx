@@ -1,8 +1,6 @@
 'use client'
 
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Avatar } from '@/components/ui/avatar';
-import { mockTraders } from '@/lib/mockData';
 
 export function LiveTraders() {
   return (

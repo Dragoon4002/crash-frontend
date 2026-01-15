@@ -12,31 +12,18 @@ interface CrashBettingUIProps {
 }
 
 export function CrashBettingUI({ gameId, currentMultiplier, status }: CrashBettingUIProps) {
-  const { buyIn, cashOut, getActiveCrashBet, isConnected } = useGameHouseContract();
+  const { bet, isConnected, getWalletAddress } = useGameHouseContract();
 
   const [betAmount, setBetAmount] = useState(0.01);
   const [hasBet, setHasBet] = useState(false);
   const [entryMultiplier, setEntryMultiplier] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Check if player has active bet
+  // Reset bet state when game changes
   useEffect(() => {
-    async function checkActiveBet() {
-      if (!gameId || !isConnected) return;
-
-      try {
-        const betId = await getActiveCrashBet(
-          window.ethereum?.selectedAddress || '',
-          parseInt(gameId, 10)
-        );
-        setHasBet(betId > BigInt(0));
-      } catch (error) {
-        console.error('Error checking active bet:', error);
-      }
-    }
-
-    checkActiveBet();
-  }, [gameId, isConnected, getActiveCrashBet]);
+    setHasBet(false);
+    setEntryMultiplier(0);
+  }, [gameId]);
 
   const handleBuyIn = async () => {
     if (!gameId || !isConnected) {
@@ -47,17 +34,13 @@ export function CrashBettingUI({ gameId, currentMultiplier, status }: CrashBetti
     setIsProcessing(true);
 
     try {
-      const result = await buyIn(
-        parseInt(gameId, 10),
-        currentMultiplier, // Entry multiplier
-        betAmount
-      );
+      const result = await bet(betAmount);
 
       if (result.success) {
-        console.log('✅ Buy-in successful! Bet ID:', result.betId);
+        console.log('✅ Buy-in successful! TX:', result.transactionHash);
         setHasBet(true);
         setEntryMultiplier(currentMultiplier);
-        alert(`Buy-in successful!\nBet ID: ${result.betId}\nEntry: ${currentMultiplier.toFixed(2)}x`);
+        alert(`Buy-in successful!\nTX: ${result.transactionHash}\nEntry: ${currentMultiplier.toFixed(2)}x`);
       } else {
         alert(`Buy-in failed: ${result.error}`);
       }
@@ -76,7 +59,7 @@ export function CrashBettingUI({ gameId, currentMultiplier, status }: CrashBetti
 
     try {
       // Get user's wallet address
-      const userAddress = window.ethereum?.selectedAddress;
+      const userAddress = await getWalletAddress();
       if (!userAddress) {
         alert('Wallet not connected!');
         setIsProcessing(false);

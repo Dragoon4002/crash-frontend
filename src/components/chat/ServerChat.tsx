@@ -131,7 +131,7 @@ export function ServerChat() {
                   </div>
                   <div className={`bg-sidebar border border-border px-3 py-2 text-sm text-white ${
                     isOwnMessage
-                      ? 'rounded-lg rounded-br-none'
+                      ? 'rounded-lg rounded-br-none bg-border'
                       : 'rounded-lg rounded-bl-none bg-linear-to-br from-[#9B61DB] to-[#7457CC]'
                   }`}>
                     {msg.message}

@@ -5,6 +5,7 @@ import { useCandleflipRoom } from '@/hooks/useCandleflipRoom';
 import { CandleflipCanvas } from './CandleflipCanvas';
 import { TrendType } from '@/types/candleflip';
 import { Shield } from 'lucide-react';
+import { getBotForRoom } from '@/utils/botNames';
 
 interface CandleflipRoomCardProps {
   roomId: string;
@@ -15,7 +16,10 @@ interface CandleflipRoomCardProps {
 }
 
 export function CandleflipRoomCard({ roomId, betAmount, trend, onVerify, onFinished }: CandleflipRoomCardProps) {
-  const { countdownMessage, ...gameState } = useCandleflipRoom('ws://localhost:8080/candleflip', roomId);
+  const { countdownMessage, ...gameState } = useCandleflipRoom(`${process.env.NEXT_PUBLIC_WS_URL}/candleflip`, roomId);
+
+  // Get bot opponent for this room (consistent per roomId)
+  const bot = getBotForRoom(roomId);
 
   // Use roomId as userId placeholder (until WebSocket ID is available)
   const userId = `User-${roomId.slice(0, 8)}`;
@@ -55,29 +59,29 @@ export function CandleflipRoomCard({ roomId, betAmount, trend, onVerify, onFinis
   const result = getUserResult();
 
   return (
-    <div className="relative bg-[#161b22] rounded-lg border border-[#30363d] overflow-hidden">
+    <div className="relative bg-sidebar rounded-lg border border-border overflow-hidden">
       {/* Shield Icon - Top Right */}
       <div className="absolute top-2 right-2 z-10">
         <button
           onClick={handleVerify}
-          className="p-2 bg-[#0d1117]/80 hover:bg-[#0d1117] border border-[#30363d] rounded-lg transition-colors"
+          className="p-2 bg-background/80 hover:bg-background border border-border rounded-lg transition-colors"
           title="Verify Game"
         >
-          <Shield className="w-5 h-5 text-[#58a6ff]" />
+          <Shield className="w-5 h-5 text-primary" />
         </button>
       </div>
 
-      {/* Top Banner - Bullish (User) */}
+      {/* Top Banner - Bullish Side */}
       <div
-        className={`h-10 flex items-center justify-between px-4 font-bold text-sm border-b border-[#30363d] ${
+        className={`h-10 flex items-center justify-between px-4 font-bold text-sm border-b border-border ${
           trend === 'bullish'
-            ? 'bg-gradient-to-r from-green-600 to-green-500 text-white'
-            : 'bg-[#1f2428] text-gray-500'
+            ? 'bg-gradient-to-br from-[#9B61DB] to-[#7457CC] text-white'
+            : 'bg-sidebar text-gray-500'
         }`}
       >
         <div className="flex items-center gap-2">
           <span>📈</span>
-          <span>{userId}</span>
+          <span>{trend === 'bullish' ? userId : `${bot.emoji} ${bot.name}`}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs">BULLISH</span>
@@ -86,7 +90,7 @@ export function CandleflipRoomCard({ roomId, betAmount, trend, onVerify, onFinis
       </div>
 
       {/* Canvas Area */}
-      <div className="relative h-64 bg-[#0d1117]">
+      <div className="relative h-64 bg-background">
         <CandleflipCanvas
           priceHistory={gameState.priceHistory}
           currentPrice={gameState.currentPrice}
@@ -112,17 +116,17 @@ export function CandleflipRoomCard({ roomId, betAmount, trend, onVerify, onFinis
         )}
       </div>
 
-      {/* Bottom Banner - Bearish (Bot) */}
+      {/* Bottom Banner - Bearish Side */}
       <div
-        className={`h-10 flex items-center justify-between px-4 font-bold text-sm border-t border-[#30363d] ${
+        className={`h-10 flex items-center justify-between px-4 font-bold text-sm border-t border-border ${
           trend === 'bearish'
-            ? 'bg-gradient-to-r from-red-600 to-red-500 text-white'
-            : 'bg-[#1f2428] text-gray-500'
+            ? 'bg-gradient-to-br from-[#9B61DB] to-[#7457CC] text-white'
+            : 'bg-sidebar text-gray-500'
         }`}
       >
         <div className="flex items-center gap-2">
           <span>📉</span>
-          <span>🤖 AI</span>
+          <span>{trend === 'bearish' ? userId : `${bot.emoji} ${bot.name}`}</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs">BEARISH</span>
@@ -131,7 +135,7 @@ export function CandleflipRoomCard({ roomId, betAmount, trend, onVerify, onFinis
       </div>
 
       {/* Room ID Badge */}
-      <div className="absolute bottom-12 left-2 bg-[#0d1117]/90 px-2 py-1 rounded text-xs text-gray-400 border border-[#30363d]">
+      <div className="absolute bottom-12 left-2 bg-background/90 px-2 py-1 rounded text-xs text-gray-400 border border-border">
         Room #{roomId}
       </div>
     </div>

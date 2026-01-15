@@ -1,19 +1,26 @@
 export const COLORS = {
   background: {
-    primary: '#0a0a0f',
-    secondary: '#1a1a2e',
-    card: '#14141f',
+    primary: '#190D2C',
+    secondary: '#251337',
+    card: '#251337',
+  },
+  primary: '#9263E1',
+  button: {
+    gradient: {
+      from: '#9B61DB',
+      to: '#7457CC',
+    },
   },
   accent: {
     green: '#22c55e',
     red: '#ef4444',
     gold: '#f59e0b',
-    orange: '#fb923c',
+    purple: '#9263E1',
   },
   text: {
     primary: '#ffffff',
-    secondary: '#9ca3af',
-    muted: '#6b7280',
+    secondary: 'rgba(255, 255, 255, 0.6)',
+    muted: 'rgba(255, 255, 255, 0.4)',
   },
 } as const;
 

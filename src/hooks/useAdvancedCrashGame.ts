@@ -39,6 +39,7 @@ interface GameStartMessage {
 interface PriceUpdateMessage {
   type: 'price_update';
   data: {
+    gameId?: string;
     tick: number;
     price: number;
     multiplier: number;
@@ -65,7 +66,7 @@ interface GameEndMessage {
 
 type ServerMessage = GameStartMessage | PriceUpdateMessage | GameEndMessage;
 
-const COUNTDOWN_DURATION = 10.0; // 10 seconds
+const COUNTDOWN_DURATION = 5.0; // 5 seconds
 const COUNTDOWN_TICK_MS = 100; // 100ms per tick
 const INTERPOLATION_TICK_MS = 50; // 50ms interpolation
 
@@ -118,9 +119,17 @@ export function useAdvancedCrashGame(): UseAdvancedCrashGameReturn {
       const newTarget = message.data.price;
       setTargetValue(newTarget);
 
-      // Update groups
+      // Set gameId if provided and not already set (for mid-game joins)
+      if (message.data.gameId) {
+        setGameId((currentGameId) => currentGameId || message.data.gameId!);
+      }
+
+      // Update groups and current candle
       if (message.data.previousCandles) {
         setGroups(message.data.previousCandles);
+      }
+      if (message.data.currentCandle) {
+        setCurrentCandle(message.data.currentCandle);
       }
 
       // Update current candle

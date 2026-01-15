@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useGameHouseContract } from '@/hooks/useGameHouseContract';
 import { useWebSocket } from '@/contexts/WebSocketContext';
-import { useWallets } from '@privy-io/react-auth';
+import { ethers } from 'ethers';
 
 interface TradingPanelProps {
   gameId: string | null;
@@ -13,45 +13,13 @@ interface TradingPanelProps {
 }
 
 export function TradingPanel({ gameId, currentMultiplier, status, isRugged = false }: TradingPanelProps) {
-  const { placeBet, isConnected } = useGameHouseContract();
-  const { requestCashout, activeBettors } = useWebSocket();
-  const { wallets } = useWallets();
+  const { bet, isConnected, getWalletAddress } = useGameHouseContract();
+  const { sendMessage, clientId } = useWebSocket();
 
-  const [betAmount, setBetAmount] = useState(0.01);
+  const [betAmount, setBetAmount] = useState(0);
   const [hasBet, setHasBet] = useState(false);
   const [entryMultiplier, setEntryMultiplier] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
-
-  const playerAddress = wallets.length > 0 ? wallets[0].address : '';
-
-  // Check if player has active bet by checking activeBettors
-  useEffect(() => {
-    if (!playerAddress || !gameId) {
-      setHasBet(false);
-      return;
-    }
-
-    const hasActiveBet = activeBettors.some(
-      (bettor) => bettor.address.toLowerCase() === playerAddress.toLowerCase()
-    );
-
-    if (hasActiveBet && !hasBet) {
-      // Player has bet, update entry multiplier
-      const playerBet = activeBettors.find(
-        (bettor) => bettor.address.toLowerCase() === playerAddress.toLowerCase()
-      );
-      if (playerBet) {
-        setHasBet(true);
-        setEntryMultiplier(playerBet.entryMultiplier);
-        console.log('✅ Active bet found:', playerBet);
-      }
-    } else if (!hasActiveBet && hasBet) {
-      // Bet was cashed out or game ended
-      setHasBet(false);
-      setEntryMultiplier(0);
-      console.log('🔄 Bet cleared');
-    }
-  }, [activeBettors, playerAddress, gameId, hasBet]);
 
   // Reset bet state when game gets rugged or crashes
   useEffect(() => {
@@ -67,14 +35,6 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
     }
   }, [isRugged, status, hasBet]);
 
-  // Reset on new game
-  useEffect(() => {
-    if (status === 'countdown' && hasBet) {
-      setHasBet(false);
-      setEntryMultiplier(0);
-    }
-  }, [status, hasBet]);
-
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     // Allow empty input or valid decimal numbers
@@ -87,7 +47,7 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
   };
 
   const handleReset = () => {
-    setBetAmount(0.01);
+    setBetAmount(0);
   };
 
   const handleQuickAdd = (value: number) => {
@@ -95,7 +55,7 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
   };
 
   const handleHalf = () => {
-    setBetAmount((prev) => Math.max(0.001, prev / 2));
+    setBetAmount((prev) => prev / 2);
   };
 
   const handleDouble = () => {
@@ -103,71 +63,103 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
   };
 
   const handleBuyIn = async () => {
-    if (!gameId || !isConnected || !playerAddress) {
-      alert('Wallet not connected or game not started!');
+    if (!gameId || !isConnected) {
+      console.warn('Wallet not connected or game not started');
       return;
     }
 
     if (betAmount <= 0) {
-      alert('Please enter a bet amount!');
+      console.warn('Invalid bet amount');
       return;
     }
 
     setIsProcessing(true);
 
     try {
-      // Place bet on-chain using V3 contract
-      const result = await placeBet(betAmount);
-
-      if (result.success) {
-        console.log('✅ Bet placed successfully!');
-        console.log('📝 Transaction:', result.transactionHash);
-
-        // Backend will automatically detect BetPlaced event and add to activeBettors
-        // Update local state immediately for better UX
-        setHasBet(true);
-        setEntryMultiplier(currentMultiplier);
-
-        // Optional: Show success message
-        // alert(`Bet placed successfully!\nEntry: ${currentMultiplier.toFixed(2)}x`);
-      } else {
-        alert(`Bet failed: ${result.error}`);
+      // Get wallet address
+      const playerAddress = await getWalletAddress();
+      if (!playerAddress) {
+        alert('Failed to get wallet address. Please reconnect your wallet.');
+        setIsProcessing(false);
+        return;
       }
-    } catch (error) {
-      console.error('Bet error:', error);
-      alert('Bet failed!');
+
+      // Step 1: Place bet on contract
+      console.log('🎲 Placing bet on contract...');
+      const betResult = await bet(betAmount);
+
+      if (!betResult.success) {
+        alert(`Bet failed: ${betResult.error}`);
+        setIsProcessing(false);
+        return;
+      }
+
+      console.log('✅ Bet placed on contract:', betResult.transactionHash);
+
+      // Step 2: Update local state
+      setHasBet(true);
+      setEntryMultiplier(currentMultiplier);
+
+      // Step 3: Notify server to add to active bettors list and store in DB
+      sendMessage('crash_bet_placed', {
+        playerAddress: playerAddress,
+        userId: clientId,
+        gameId: gameId,
+        betAmount: betAmount,
+        entryMultiplier: currentMultiplier,
+        transactionHash: betResult.transactionHash,
+      });
+
+      console.log(`✅ Bet placed at ${currentMultiplier.toFixed(2)}x with ${betAmount} MNT`);
+    } catch (error: any) {
+      console.error('Buy-in error:', error);
+      alert(`Failed to place bet: ${error.message || 'Unknown error'}`);
+      setHasBet(false);
+      setEntryMultiplier(0);
     } finally {
       setIsProcessing(false);
     }
   };
 
   const handleCashOut = async () => {
-    if (!gameId || !hasBet || !playerAddress) return;
+    if (!gameId || !hasBet) return;
 
     // Prevent cashout if game is rugged
     if (isRugged) {
-      alert('⚠️ Game has rugged!\nYour bet is lost. Cannot cash out.');
+      console.warn('⚠️ Game has rugged - cannot cash out');
       return;
     }
 
     setIsProcessing(true);
 
     try {
-      // Send cashout request via WebSocket
-      requestCashout(gameId, playerAddress, currentMultiplier);
-      
-      console.log('💰 Cashout requested via WebSocket');
-      
-      // The backend will:
-      // 1. Validate the request
-      // 2. Call contract.payPlayer(player, payout)
-      // 3. Remove from activeBettors
-      // 4. Broadcast updated activeBettors list
-      
-      // Local state will be updated via activeBettors useEffect
-    } catch (error) {
+      // Get wallet address
+      const playerAddress = await getWalletAddress();
+      if (!playerAddress) {
+        alert('Failed to get wallet address.');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Send cashout request to server
+      // Server will calculate payout and call payPlayer contract function
+      sendMessage('crash_cashout', {
+        playerAddress: playerAddress,
+        userId: clientId,
+        gameId: gameId,
+        cashoutMultiplier: currentMultiplier,
+        betAmount: betAmount,
+        entryMultiplier: entryMultiplier,
+      });
+
+      console.log(`📤 Cashout request sent at ${currentMultiplier.toFixed(2)}x`);
+
+      // Update local state immediately (server will confirm)
+      setHasBet(false);
+      setEntryMultiplier(0);
+    } catch (error: any) {
       console.error('Cash-out error:', error);
-      alert('Cash-out request failed!');
+      alert(`Failed to cash out: ${error.message || 'Unknown error'}`);
     } finally {
       setIsProcessing(false);
     }
@@ -180,143 +172,101 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
   // Disable cashout if game is rugged or crashed
   const canCashOut = status === 'running' && hasBet && !isProcessing && isConnected && !isRugged;
 
-  // Calculate potential payout
-  const potentialPayout = hasBet ? (betAmount * currentMultiplier).toFixed(3) : '0.000';
+  // Debug logging
+  console.log('TradingPanel Debug:', {
+    status,
+    hasBet,
+    isProcessing,
+    isConnected,
+    betAmount,
+    isRugged,
+    canBuyIn,
+    canCashOut,
+    currentMultiplier,
+    gameId
+  });
 
   return (
-    <div className="rounded-lg p-3 flex flex-col gap-3">
-      {/* Left panel - 2/3 width */}
-      <div className="flex-2">
-        {/* Top bar with amount and controls */}
-        <div className="flex items-center gap-2 rounded-lg p-2">
-          {/* Amount input (editable) */}
-          <div className="flex items-center gap-2 flex-1">
-            <span className="flex items-center gap-2 bg-[#14141f] rounded">
-              <input
-                type="text"
-                value={betAmount.toFixed(3)}
-                onChange={handleAmountChange}
-                disabled={hasBet}
-                className="px-3 py-1.5 max-w-20 text-white text-sm font-mono focus:outline-none focus:border-white/30 bg-transparent disabled:opacity-50"
-                placeholder="0.000"
-              />
-              {/* Reset button (X) */}
-              <button
-                onClick={handleReset}
-                disabled={hasBet}
-                className="px-2 py-1 text-xs text-gray-400 hover:text-white hover:bg-white/5 disabled:opacity-50"
-              >
-                ✕
-              </button>
-            </span>
+    <div className="rounded-lg p-4 bg-sidebar border border-border">
+      {/* Amount input row */}
+      <div className="flex justify-between gap-2 mb-3">
+        <input
+          type="text"
+          value={betAmount.toFixed(3)}
+          onChange={handleAmountChange}
+          className="w-32 px-3 py-2 bg-background border border-border rounded-lg text-white text-sm font-mono focus:outline-none focus:border-primary"
+          placeholder="0.000"
+        />
+        <button
+          onClick={handleReset}
+          className="px-2 py-2 text-sm text-gray-400 hover:text-white"
+        >
+          ✕
+        </button>
 
-            {/* Quick add buttons */}
-            <button
-              onClick={() => handleQuickAdd(0.001)}
-              disabled={hasBet}
-              className="bg-[#14141f] border border-white/10 rounded px-2 py-1 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-50"
-            >
-              +0.001
-            </button>
-            <button
-              onClick={() => handleQuickAdd(0.01)}
-              disabled={hasBet}
-              className="bg-[#14141f] border border-white/10 rounded px-2 py-1 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-50"
-            >
-              +0.01
-            </button>
-            <button
-              onClick={() => handleQuickAdd(0.1)}
-              disabled={hasBet}
-              className="bg-[#14141f] border border-white/10 rounded px-2 py-1 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-50"
-            >
-              +0.1
-            </button>
-            <button
-              onClick={() => handleQuickAdd(1)}
-              disabled={hasBet}
-              className="bg-[#14141f] border border-white/10 rounded px-2 py-1 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-50"
-            >
-              +1
-            </button>
-
-            {/* Fraction buttons */}
-            <button
-              onClick={handleHalf}
-              disabled={hasBet}
-              className="bg-[#14141f] border border-white/10 rounded px-2 py-1 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-50"
-            >
-              1/2
-            </button>
-            <button
-              onClick={handleDouble}
-              disabled={hasBet}
-              className="bg-[#14141f] border border-white/10 rounded px-2 py-1 text-xs text-gray-300 hover:bg-white/5 disabled:opacity-50"
-            >
-              X2
-            </button>
-          </div>
+        {/* Quick add buttons */}
+        <div className="flex items-center gap-2">
+          <button onClick={() => handleQuickAdd(0.001)} className="bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-md px-2 py-1.5 text-xs text-white font-medium hover:opacity-90 transition-all active:scale-95">+0.001</button>
+          <button onClick={() => handleQuickAdd(0.01)} className="bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-md px-2 py-1.5 text-xs text-white font-medium hover:opacity-90 transition-all active:scale-95">+0.01</button>
+          <button onClick={() => handleQuickAdd(0.1)} className="bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-md px-2 py-1.5 text-xs text-white font-medium hover:opacity-90 transition-all active:scale-95">+0.1</button>
+          <button onClick={() => handleQuickAdd(1)} className="bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-md px-2 py-1.5 text-xs text-white font-medium hover:opacity-90 transition-all active:scale-95">+1</button>
+          <button onClick={handleHalf} className="bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-md px-2 py-1.5 text-xs text-white font-medium hover:opacity-90 transition-all active:scale-95">1/2</button>
+          <button onClick={handleDouble} className="bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-md px-2 py-1.5 text-xs text-white font-medium hover:opacity-90 transition-all active:scale-95">X2</button>
         </div>
       </div>
 
-      {/* Right side - Buy/Sell buttons - 1/3 width */}
-      <div className="flex-1 flex flex-col justify-center">
-        {!hasBet ? (
+      {/* Buy/Sell button */}
+      {!hasBet ? (
+        <div>
           <button
             onClick={handleBuyIn}
             disabled={!canBuyIn}
-            className={`w-full py-4 rounded-lg font-bold text-sm transition-all ${
+            className={`w-full py-3 rounded-lg font-bold text-sm transition-all ${
               canBuyIn
-                ? 'bg-green-500 hover:bg-green-600 text-white'
-                : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                ? 'bg-gradient-to-br from-[#9B61DB] to-[#7457CC] hover:opacity-90 text-white active:scale-95'
+                : 'bg-background border border-border text-gray-400 cursor-not-allowed'
             }`}
           >
             {isProcessing ? 'Processing...' : `BUY @ ${currentMultiplier.toFixed(2)}x`}
           </button>
-        ) : (
-          <div className="space-y-2">
-            <div className="bg-[#14141f] border border-green-500 rounded-lg p-2 text-center">
-              <div className="text-xs text-gray-400">Entry</div>
-              <div className="text-lg font-bold text-green-400">{entryMultiplier.toFixed(2)}x</div>
-              <div className="text-xs text-gray-400 mt-1">Potential: {potentialPayout} MNT</div>
-            </div>
-            <button
-              onClick={handleCashOut}
-              disabled={!canCashOut}
-              className={`w-full py-4 rounded-lg font-bold text-sm transition-all ${
-                canCashOut
-                  ? 'bg-yellow-500 hover:bg-yellow-600 text-black animate-pulse'
-                  : 'bg-gray-700 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {isProcessing
-                ? 'Processing...'
-                : isRugged
-                ? 'RUGGED'
-                : status === 'crashed'
-                ? 'CRASHED'
-                : `SELL @ ${currentMultiplier.toFixed(2)}x`}
-            </button>
-          </div>
-        )}
 
-        {/* Status messages */}
-        {!isConnected && (
-          <div className="text-xs text-red-400 text-center mt-2">
-            Wallet not connected
+          {!canBuyIn && (
+            <div className="text-xs text-center mt-2 text-yellow-400">
+              {!isConnected ? '🔒 Wallet not connected' :
+               betAmount <= 0 ? '⚠ Enter bet amount' :
+               status === 'connecting' ? '⏳ Connecting...' :
+               status === 'crashed' ? '⏸ Wait for next round' :
+               isRugged ? '⚠ Game rugged' : ''}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div>
+          <div className="flex items-center justify-between mb-2 px-1">
+            <span className="text-xs text-gray-400">Entry: <span className="text-primary font-bold">{entryMultiplier.toFixed(2)}x</span></span>
+            <span className="text-xs text-gray-400">Current: <span className="text-white font-bold">{currentMultiplier.toFixed(2)}x</span></span>
           </div>
-        )}
-        {isRugged && (
-          <div className="text-xs text-red-500 font-bold text-center mt-2 bg-red-500/10 border border-red-500/30 rounded px-2 py-1">
-            ⚠️ GAME RUGGED - Cannot cashout
-          </div>
-        )}
-        {status === 'crashed' && !isRugged && hasBet && (
-          <div className="text-xs text-orange-400 text-center mt-2">
-            Game crashed - Bet lost
-          </div>
-        )}
-      </div>
+          <button
+            onClick={handleCashOut}
+            disabled={!canCashOut}
+            className={`w-full py-3 rounded-lg font-bold text-sm transition-all ${
+              canCashOut
+                ? 'bg-gradient-to-br from-[#9B61DB] to-[#7457CC] hover:opacity-90 text-white animate-pulse active:scale-95'
+                : 'bg-background border border-border text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            {isProcessing ? 'Processing...' : isRugged ? 'RUGGED' : status === 'crashed' ? 'CRASHED' : `SELL @ ${currentMultiplier.toFixed(2)}x`}
+          </button>
+
+          {!canCashOut && hasBet && (
+            <div className="text-xs text-center mt-2">
+              {isRugged ? <span className="text-red-500 font-bold">⚠ RUGGED - Bet lost</span> :
+               status === 'crashed' ? <span className="text-orange-400">💥 Crashed - Bet lost</span> :
+               status === 'countdown' ? <span className="text-gray-400">⏸ Not started</span> : null}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

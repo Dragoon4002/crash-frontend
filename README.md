@@ -1,4 +1,4 @@
-# RUGS.FUN - Crypto Trading & Betting Platform
+# CRAZD - Crypto Trading & Betting Platform
 
 A comprehensive crypto trading and betting platform with three game modes: Standard, Candleflip, and Battles.
 
@@ -26,7 +26,7 @@ A comprehensive crypto trading and betting platform with three game modes: Stand
 ### 🎨 UI Components
 
 #### Navigation Header
-- RUGS.FUN branding with Beta badge
+- CRAZD branding with Beta badge
 - Three game mode tabs with icons
 - Level indicator with XP progress bar
 - Rugpass tier badge
@@ -57,32 +57,6 @@ A comprehensive crypto trading and betting platform with three game modes: Stand
 - Table view for ranks 4-20+
 - Color-coded avatars by rank tier
 
-## Tech Stack
-
-- **Framework**: Next.js 16 with App Router
-- **Language**: TypeScript
-- **UI Library**: shadcn/ui components
-- **Styling**: Tailwind CSS v4
-- **Icons**: Lucide React
-- **Authentication**: Privy (integrated but not active)
-- **Theme**: next-themes (dark mode ready)
-
-## Project Structure
-
-```
-src/
-├── components/
-│   ├── ui/                    # shadcn components
-│   ├── layout/               # Layout components
-│   ├── trading/              # Trading components
-│   ├── candleflip/           # Candleflip components
-│   ├── chat/                 # Chat components
-│   ├── leaderboard/          # Leaderboard components
-│   └── pages/                # Page components
-├── lib/                      # Utilities & types
-├── providers/                # Context providers
-└── app/                      # Next.js app directory
-```
 
 ## Color Scheme
 
@@ -113,14 +87,23 @@ NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
 NEXT_PUBLIC_PRIVY_CLIENT_ID=your_privy_client_id
 ```
 
+## Backend Connection
+
+The app connects to the Go backend via WebSocket:
+
+```
+ws://localhost:8080/ws           # Unified WebSocket (crash, chat, rooms)
+ws://localhost:8080/candleflip   # Candleflip game
+```
+
+Add to `.env.local`:
+```env
+NEXT_PUBLIC_WS_URL=ws://localhost:8080
+```
+
 ## Development
 
-The app uses mock data defined in `src/lib/mockData.ts`. To connect to real APIs:
-
-1. Create custom hooks in `src/hooks/` for data fetching
-2. Implement WebSocket connections for real-time updates
-3. Replace mock data with API calls
-4. Add state management (Zustand/Redux) if needed
+Mock data is available in `src/lib/mockData.ts` for offline development.
 
 ## Deploy on Vercel
 

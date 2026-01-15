@@ -14,7 +14,7 @@ interface WebSocketContextType {
   connectedUsers: number;
   subscribe: (channel: string) => void;
   unsubscribe: (channel: string) => void;
-  sendChatMessage: (message: string) => void;
+  sendChatMessage: (message: string, walletAddress?: string) => void;
   createRoom: (roomId: string, gameType: string, betAmount: number, trend?: string, creatorId?: string, botNameSeed?: string, contractGameId?: string, roomsCount?: number) => void;
   sendMessage: (type: string, data: any) => void;
   createCandleflipBatch: (address: string, roomCount: number, amountPerRoom: string, side: 'bull' | 'bear') => void;
@@ -23,7 +23,7 @@ interface WebSocketContextType {
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
 
 export function WebSocketProvider({ children }: { children: ReactNode }) {
-  const ws = useUnifiedWebSocket('ws://localhost:8080/ws');
+  const ws = useUnifiedWebSocket(`${process.env.NEXT_PUBLIC_WS_URL}/ws`);
   const value = useMemo(() => ws, [ws]);
 
   return (

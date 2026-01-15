@@ -45,7 +45,7 @@ export function CandleflipCanvas({
 
     const render = () => {
       // Clear canvas
-      ctx.fillStyle = '#0d1117';
+      ctx.fillStyle = '#12051C';
       ctx.fillRect(0, 0, width, height);
 
       // Show countdown or messages
@@ -102,15 +102,15 @@ function drawCountdown(
     // Number countdown (3, 2, 1)
     ctx.font = 'bold 72px monospace';
     ctx.fillStyle = '#ffffff';
-    ctx.shadowColor = '#00ff88';
+    ctx.shadowColor = '#9263E1';
     ctx.shadowBlur = 20;
     ctx.fillText(countdown.toString(), width / 2, height / 2);
     ctx.shadowBlur = 0;
   } else if (countdownMessage) {
     // "candle" or "flip!" messages
     ctx.font = 'bold 48px monospace';
-    ctx.fillStyle = '#00ff88';
-    ctx.shadowColor = '#00ff88';
+    ctx.fillStyle = '#9263E1';
+    ctx.shadowColor = '#9263E1';
     ctx.shadowBlur = 25;
     ctx.fillText(countdownMessage.toUpperCase(), width / 2, height / 2);
     ctx.shadowBlur = 0;
@@ -160,7 +160,7 @@ function drawPriceChart(
 
   // Draw horizontal line at price = 1.0
   const y1 = priceToY(1.0);
-  ctx.strokeStyle = '#30363d';
+  ctx.strokeStyle = '#9263E1';
   ctx.lineWidth = 2;
   ctx.setLineDash([5, 5]);
   ctx.beginPath();
@@ -199,13 +199,13 @@ function drawPriceChart(
     const lastX = padding.left + chartWidth;
     const lastY = priceToY(currentPrice);
 
-    ctx.fillStyle = '#00ff88';
+    ctx.fillStyle = '#9263E1';
     ctx.beginPath();
     ctx.arc(lastX, lastY, 6, 0, Math.PI * 2);
     ctx.fill();
 
     // Current price label
-    ctx.fillStyle = '#00ff88';
+    ctx.fillStyle = '#9263E1';
     ctx.font = 'bold 14px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';

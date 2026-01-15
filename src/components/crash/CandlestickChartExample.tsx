@@ -22,7 +22,7 @@ interface CandlestickChartExampleProps {
 }
 
 export function CandlestickChartExample({
-  wsUrl = 'ws://localhost:8080/ws',
+  wsUrl = `${process.env.NEXT_PUBLIC_WS_URL}/ws`,
   isHistoryMode = false,
   historyMergeCount = 20,
 }: CandlestickChartExampleProps) {

@@ -60,7 +60,7 @@ type ServerMessage = GameStartMessage | PriceUpdateMessage | GameEndMessage | Co
 
 const MAX_HISTORY = 500; // Keep last 500 data points for better charting
 
-export function useCrashGame(wsUrl: string = 'ws://localhost:8080/ws'): UseCrashGameReturn {
+export function useCrashGame(wsUrl: string = `${process.env.NEXT_PUBLIC_WS_URL}/ws`): UseCrashGameReturn {
   const [status, setStatus] = useState<UseCrashGameReturn['status']>('connecting');
   const [multiplier, setMultiplier] = useState<number>(1.0);
   const [countdown, setCountdown] = useState<number>(10);
@@ -115,9 +115,9 @@ export function useCrashGame(wsUrl: string = 'ws://localhost:8080/ws'): UseCrash
             setConnectedUsers(message.data.connectedUsers);
             setFinalPrice(message.data.price); // Keep track of latest price
 
-            // Update gameId if present (for clients that join mid-game)
-            if (message.data.gameId && !gameId) {
-              setGameId(message.data.gameId);
+            // Set gameId if provided and not already set (for mid-game joins)
+            if (message.data.gameId) {
+              setGameId((currentGameId) => currentGameId || message.data.gameId!);
             }
 
             // Add to history for candlestick chart

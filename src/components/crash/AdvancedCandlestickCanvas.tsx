@@ -171,7 +171,7 @@ export function AdvancedCandlestickCanvas({ groups, currentValue, status, rugged
       };
 
       // Clear canvas
-      ctx.fillStyle = '#0d1117';
+      ctx.fillStyle = '#12051C';
       ctx.fillRect(0, 0, width, height);
 
       // Update smooth values using interpolation formula: (target - current) / 120
@@ -289,7 +289,7 @@ function drawYAxis(
   valueToY: (value: number) => number
 ) {
   ctx.font = '13px monospace';
-  ctx.fillStyle = '#8b949e';
+  ctx.fillStyle = '#9263E1';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
 
@@ -307,7 +307,7 @@ function drawYAxis(
     currentValue += step;
   }
 
-  ctx.strokeStyle = '#30363d';
+  ctx.strokeStyle = '#9263E1';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(padding.left, padding.top);
@@ -322,10 +322,10 @@ function drawXAxis(
   chartHeight: number,
   groups: CandleGroup[]
 ) {
-  ctx.strokeStyle = '#30363d';
+  ctx.strokeStyle = '#9263E1';
   ctx.lineWidth = 2;
   ctx.font = '12px monospace';
-  ctx.fillStyle = '#8b949e';
+  ctx.fillStyle = '#9263E1';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
@@ -449,7 +449,7 @@ function drawCurrentPriceLine(
   const y = valueToY(currentPrice);
 
   ctx.setLineDash([5, 5]);
-  ctx.strokeStyle = '#00ff88';
+  ctx.strokeStyle = '#9263E1';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(padding.left, y);
@@ -481,13 +481,13 @@ function drawCurrentPriceLine(
   );
 
   // Draw text
-  ctx.fillStyle = '#00ff88';
+  ctx.fillStyle = '#9263E1';
   ctx.fillText(text, xCenter, yText);
 
   // Also draw on the right side
-  ctx.fillStyle = '#00ff88';
+  ctx.fillStyle = '#9263E1';
   ctx.fillRect(padding.left + chartWidth + 5, y - 12, 70, 24);
-  ctx.fillStyle = '#0d1117';
+  ctx.fillStyle = '#12051C';
   ctx.font = 'bold 12px monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -509,7 +509,7 @@ function drawMultiplierText(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  ctx.shadowColor = status === 'crashed' ? '#ff4444' : '#00ff88';
+  ctx.shadowColor = status === 'crashed' ? '#ff4444' : '#9263E1';
   ctx.shadowBlur = 30;
 
   ctx.fillText(text, width / 2, height / 2);

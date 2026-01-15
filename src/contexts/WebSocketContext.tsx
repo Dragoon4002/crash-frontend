@@ -22,7 +22,7 @@ interface WebSocketContextType {
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
 
 export function WebSocketProvider({ children }: { children: ReactNode }) {
-  const ws = useUnifiedWebSocket('ws://localhost:8080/ws');
+  const ws = useUnifiedWebSocket(`${process.env.NEXT_PUBLIC_WS_URL}/ws`);
   const value = useMemo(() => ws, [ws]);
 
   return (

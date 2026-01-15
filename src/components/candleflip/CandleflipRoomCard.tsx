@@ -16,7 +16,7 @@ interface CandleflipRoomCardProps {
 }
 
 export function CandleflipRoomCard({ roomId, betAmount, trend, onVerify, onFinished }: CandleflipRoomCardProps) {
-  const { countdownMessage, ...gameState } = useCandleflipRoom('ws://localhost:8080/candleflip', roomId);
+  const { countdownMessage, ...gameState } = useCandleflipRoom(`${process.env.NEXT_PUBLIC_WS_URL}/candleflip`, roomId);
 
   // Get bot opponent for this room (consistent per roomId)
   const bot = getBotForRoom(roomId);

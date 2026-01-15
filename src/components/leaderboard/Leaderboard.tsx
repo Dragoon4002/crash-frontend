@@ -39,8 +39,8 @@ export function Leaderboard() {
       try {
         setLoading(true);
         const url = walletAddress
-          ? `http://localhost:8080/api/leaderboard?wallet=${walletAddress}`
-          : 'http://localhost:8080/api/leaderboard';
+          ? `${process.env.NEXT_PUBLIC_API_URL}/api/leaderboard?wallet=${walletAddress}`
+          : `${process.env.NEXT_PUBLIC_API_URL}/api/leaderboard`;
 
         const response = await fetch(url);
         const data: LeaderboardResponse = await response.json();

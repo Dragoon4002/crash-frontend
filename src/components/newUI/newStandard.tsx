@@ -9,7 +9,7 @@ import { CandlestickGameHistory } from '../crash/CandlestickGameHistory';
 
 export function NewStandardMode() {
   // Connect to crash game WebSocket for real-time game data
-  const { status, multiplier, gameId, rugged } = useCrashGame('ws://localhost:8080/ws');
+  const { status, multiplier, gameId, rugged } = useCrashGame(`${process.env.NEXT_PUBLIC_WS_URL}/ws`);
 
   // Get crash history and active bettors from unified WebSocket
   const { crashHistory, activeBettors } = useWebSocket();

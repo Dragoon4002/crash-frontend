@@ -1,4 +1,4 @@
-# RUGS.FUN - Crypto Trading & Betting Platform
+# CRAZD - Crypto Trading & Betting Platform
 
 A comprehensive crypto trading and betting platform with three game modes: Standard, Candleflip, and Battles.
 
@@ -26,7 +26,7 @@ A comprehensive crypto trading and betting platform with three game modes: Stand
 ### 🎨 UI Components
 
 #### Navigation Header
-- RUGS.FUN branding with Beta badge
+- CRAZD branding with Beta badge
 - Three game mode tabs with icons
 - Level indicator with XP progress bar
 - Rugpass tier badge
@@ -57,37 +57,6 @@ A comprehensive crypto trading and betting platform with three game modes: Stand
 - Table view for ranks 4-20+
 - Color-coded avatars by rank tier
 
-## Tech Stack
-
-- **Framework**: Next.js 16 with App Router
-- **Language**: TypeScript
-- **UI Library**: shadcn/ui components
-- **Styling**: Tailwind CSS v4
-- **Icons**: Lucide React
-- **Authentication**: Privy (integrated but not active)
-- **Theme**: next-themes (dark mode ready)
-
-## Project Structure
-
-```
-src/
-├── app/                      # Next.js app directory
-├── components/
-│   ├── ui/                   # shadcn components
-│   ├── layout/               # Layout components
-│   ├── trading/              # Trading components
-│   ├── candleflip/           # Candleflip components
-│   ├── chat/                 # Chat components
-│   ├── leaderboard/          # Leaderboard components
-│   └── pages/                # Page components
-├── contexts/                 # React contexts
-├── contracts/                # Contract ABIs
-├── hooks/                    # Custom React hooks
-├── lib/                      # Utilities & mock data
-├── providers/                # Context providers
-├── types/                    # TypeScript types
-└── utils/                    # Helper utilities
-```
 
 ## Color Scheme
 

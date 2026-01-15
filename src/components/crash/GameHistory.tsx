@@ -26,7 +26,7 @@ interface GameHistoryProps {
 export function GameHistory({ history }: GameHistoryProps) {
   if (!history || history.length === 0) {
     return (
-      <Card className="bg-[#14141f] border-white/5 p-4">
+      <Card className="bg-sidebar border-border p-4 pb-0">
         <h3 className="text-sm text-gray-400 mb-3">Game History</h3>
         <div className="text-xs text-gray-500 text-center py-4">
           No game history available
@@ -36,8 +36,8 @@ export function GameHistory({ history }: GameHistoryProps) {
   }
 
   return (
-    <Card className="bg-[#14141f] border-white/5 p-4">
-      <h3 className="text-sm text-gray-400 mb-3">Game History (Last 10 Games)</h3>
+    <Card className="bg-sidebar border-border p-4 pb-0">
+      <h3 className="text-sm text-gray-400 mb-3">Game History (Last 15 Games)</h3>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
         {history.map((game, idx) => (
@@ -65,7 +65,7 @@ function MiniGameBlock({ game }: { game: GameHistoryItem }) {
   }));
 
   return (
-    <div className="bg-[#0a0a0f]/50 rounded-lg p-2 border border-white/5 hover:border-white/10 transition-colors">
+    <div className="bg-transparent rounded-lg p-2 border border-border hover:border-white/10 transition-colors">
       {/* Mini Candlestick Chart */}
       <div className="h-16 mb-2 relative">
         <CandlestickChartCanvas
@@ -74,7 +74,7 @@ function MiniGameBlock({ game }: { game: GameHistoryItem }) {
           currentPrice={0}
           gameEnded={true}
           isHistoryMode={true}
-          historyMergeCount={10}
+          historyMergeCount={15}
         />
       </div>
 

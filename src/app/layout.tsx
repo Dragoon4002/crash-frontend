@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Lilita_One } from "next/font/google";
 import "./globals.css";
 import Providers from "@/providers/Providers";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -12,6 +12,12 @@ const geistSans = Geist({
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
+  subsets: ["latin"],
+});
+
+const lilitaOne = Lilita_One({
+  variable: "--font-lilita-one",
+  weight: "400",
   subsets: ["latin"],
 });
 
@@ -28,13 +34,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`antialiased`}
+        className={`antialiased ${lilitaOne.variable}`}
       >
         <Providers>
           <NewSidebar />
-          <div className='absolute bottom-10 right-10 z-50'>
+          {/* <div className='absolute bottom-10 right-10 z-50'>
             <SidebarTrigger className='text-white border-2 border-white/20 h-10 w-10 rounded-2xl' />
-          </div>
+          </div> */}
           {children}
         </Providers>
       </body>

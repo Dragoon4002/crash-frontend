@@ -98,14 +98,14 @@ export function CrashBettingUI({ gameId, currentMultiplier, status }: CrashBetti
   return (
     <div className="absolute bottom-8 right-8 z-10 flex flex-col gap-3">
       {/* Bet Amount Input */}
-      <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-4">
+      <div className="bg-sidebar border border-border rounded-lg p-4">
         <label className="block text-xs text-gray-400 mb-2">Bet Amount (MNT)</label>
         <input
           type="number"
           value={betAmount}
           onChange={(e) => setBetAmount(parseFloat(e.target.value) || 0.01)}
           disabled={hasBet || isProcessing}
-          className="w-full bg-[#0d1117] border border-[#30363d] rounded px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-[#58a6ff] disabled:opacity-50"
+          className="w-full bg-background border border-border rounded px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-primary disabled:opacity-50"
           step="0.01"
           min="0.01"
         />
@@ -118,7 +118,7 @@ export function CrashBettingUI({ gameId, currentMultiplier, status }: CrashBetti
           disabled={!canBuyIn}
           className={`px-6 py-3 rounded-lg font-bold text-sm transition-all ${
             canBuyIn
-              ? 'bg-green-500 hover:bg-green-600 text-white'
+              ? 'bg-gradient-to-br from-[#9B61DB] to-[#7457CC] hover:opacity-90 text-white'
               : 'bg-gray-700 text-gray-400 cursor-not-allowed'
           }`}
         >
@@ -129,16 +129,16 @@ export function CrashBettingUI({ gameId, currentMultiplier, status }: CrashBetti
       {/* Cash Out Button */}
       {hasBet && (
         <div className="flex flex-col gap-2">
-          <div className="bg-[#161b22] border border-green-500 rounded-lg p-3 text-center">
+          <div className="bg-sidebar border border-primary rounded-lg p-3 text-center">
             <div className="text-xs text-gray-400">Entry</div>
-            <div className="text-lg font-bold text-green-400">{entryMultiplier.toFixed(2)}x</div>
+            <div className="text-lg font-bold text-primary">{entryMultiplier.toFixed(2)}x</div>
           </div>
           <button
             onClick={handleCashOut}
             disabled={!canCashOut}
             className={`px-6 py-3 rounded-lg font-bold text-sm transition-all ${
               canCashOut
-                ? 'bg-yellow-500 hover:bg-yellow-600 text-black animate-pulse'
+                ? 'bg-gradient-to-br from-[#9B61DB] to-[#7457CC] hover:opacity-90 text-white animate-pulse'
                 : 'bg-gray-700 text-gray-400 cursor-not-allowed'
             }`}
           >

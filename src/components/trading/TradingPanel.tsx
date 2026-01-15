@@ -187,158 +187,86 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
   });
 
   return (
-    <div className="rounded-lg p-3 flex flex-col gap-3">
-      {/* Left panel - 2/3 width */}
-      <div className="flex-2">
-        {/* Top bar with amount and controls */}
-        <div className="flex items-center gap-2 rounded-lg p-2">
-          {/* Amount input (editable) */}
-          <div className="flex items-center gap-2 flex-1">
-          <span className="flex items-center gap-2 bg-[#
-          ] rounded">
-            <input
-              type="text"
-              value={betAmount.toFixed(3)}
-              onChange={handleAmountChange}
-              className="px-3 py-1.5 min-w-16 text-white text-sm font-mono focus:outline-none focus:border-white/30"
-              placeholder="0.000"
-            />
-            {/* Reset button (X) */}
-            <button
-              onClick={handleReset}
-              className=" px-2 py-1 text-xs text-gray-400 hover:text-white hover:bg-white/5"
-            >
-              ✕
-            </button>
-          </span>
+    <div className="rounded-lg p-4 bg-sidebar border border-border">
+      {/* Amount input row */}
+      <div className="flex justify-between gap-2 mb-3">
+        <input
+          type="text"
+          value={betAmount.toFixed(3)}
+          onChange={handleAmountChange}
+          className="w-32 px-3 py-2 bg-background border border-border rounded-lg text-white text-sm font-mono focus:outline-none focus:border-primary"
+          placeholder="0.000"
+        />
+        <button
+          onClick={handleReset}
+          className="px-2 py-2 text-sm text-gray-400 hover:text-white"
+        >
+          ✕
+        </button>
 
-          {/* Quick add buttons */}
-          <button
-            onClick={() => handleQuickAdd(0.001)}
-            className="bg-[#14141f] border border-white/10 rounded px-2 py-1 text-xs text-gray-300 hover:bg-white/5"
-          >
-            +0.001
-          </button>
-          <button
-            onClick={() => handleQuickAdd(0.01)}
-            className="bg-[#14141f] border border-white/10 rounded px-2 py-1 text-xs text-gray-300 hover:bg-white/5"
-          >
-            +0.01
-          </button>
-          <button
-            onClick={() => handleQuickAdd(0.1)}
-            className="bg-[#14141f] border border-white/10 rounded px-2 py-1 text-xs text-gray-300 hover:bg-white/5"
-          >
-            +0.1
-          </button>
-          <button
-            onClick={() => handleQuickAdd(1)}
-            className="bg-[#14141f] border border-white/10 rounded px-2 py-1 text-xs text-gray-300 hover:bg-white/5"
-          >
-            +1
-          </button>
-
-          {/* Fraction buttons */}
-          <button
-            onClick={handleHalf}
-            className="bg-[#14141f] border border-white/10 rounded px-2 py-1 text-xs text-gray-300 hover:bg-white/5"
-          >
-            1/2
-          </button>
-          <button
-            onClick={handleDouble}
-            className="bg-[#14141f] border border-white/10 rounded px-2 py-1 text-xs text-gray-300 hover:bg-white/5"
-          >
-            X2
-          </button>
-        </div>
+        {/* Quick add buttons */}
+        <div className="flex items-center gap-2">
+          <button onClick={() => handleQuickAdd(0.001)} className="bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-md px-2 py-1.5 text-xs text-white font-medium hover:opacity-90 transition-all active:scale-95">+0.001</button>
+          <button onClick={() => handleQuickAdd(0.01)} className="bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-md px-2 py-1.5 text-xs text-white font-medium hover:opacity-90 transition-all active:scale-95">+0.01</button>
+          <button onClick={() => handleQuickAdd(0.1)} className="bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-md px-2 py-1.5 text-xs text-white font-medium hover:opacity-90 transition-all active:scale-95">+0.1</button>
+          <button onClick={() => handleQuickAdd(1)} className="bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-md px-2 py-1.5 text-xs text-white font-medium hover:opacity-90 transition-all active:scale-95">+1</button>
+          <button onClick={handleHalf} className="bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-md px-2 py-1.5 text-xs text-white font-medium hover:opacity-90 transition-all active:scale-95">1/2</button>
+          <button onClick={handleDouble} className="bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-md px-2 py-1.5 text-xs text-white font-medium hover:opacity-90 transition-all active:scale-95">X2</button>
         </div>
       </div>
 
-      {/* Right side - Buy/Sell buttons - 1/3 width */}
-      <div className="flex-1 flex flex-col justify-center">
-        {!hasBet ? (
-          <div className="space-y-2">
-            <button
-              onClick={handleBuyIn}
-              disabled={!canBuyIn}
-              className={`w-full py-4 rounded-lg font-bold text-sm transition-all ${
-                canBuyIn
-                  ? 'bg-green-500 hover:bg-green-600 text-white'
-                  : 'bg-gray-700 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {isProcessing ? 'Processing...' : `BUY @ ${currentMultiplier.toFixed(2)}x`}
-            </button>
+      {/* Buy/Sell button */}
+      {!hasBet ? (
+        <div>
+          <button
+            onClick={handleBuyIn}
+            disabled={!canBuyIn}
+            className={`w-full py-3 rounded-lg font-bold text-sm transition-all ${
+              canBuyIn
+                ? 'bg-gradient-to-br from-[#9B61DB] to-[#7457CC] hover:opacity-90 text-white active:scale-95'
+                : 'bg-background border border-border text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            {isProcessing ? 'Processing...' : `BUY @ ${currentMultiplier.toFixed(2)}x`}
+          </button>
 
-            {/* Disabled reason messages */}
-            {!canBuyIn && (
-              <div className="text-xs text-center mt-2">
-                {!isConnected && (
-                  <span className="text-red-400">🔒 Wallet not connected</span>
-                )}
-                {isConnected && betAmount <= 0 && (
-                  <span className="text-yellow-400">⚠️ Enter bet amount</span>
-                )}
-                {isConnected && betAmount > 0 && status === 'connecting' && (
-                  <span className="text-blue-400">⏳ Connecting to game...</span>
-                )}
-                {isConnected && betAmount > 0 && status === 'crashed' && (
-                  <span className="text-gray-400">⏸️ Game ended - wait for next round</span>
-                )}
-                {isConnected && betAmount > 0 && (!gameId || gameId === '') && (
-                  <span className="text-gray-400">⏸️ Waiting for game to start...</span>
-                )}
-                {isConnected && betAmount > 0 && hasBet && (
-                  <span className="text-gray-400">✅ Already placed bet</span>
-                )}
-                {isRugged && (
-                  <span className="text-red-500">⚠️ Game rugged</span>
-                )}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <div className="bg-[#14141f] border border-green-500 rounded-lg p-2 text-center">
-              <div className="text-xs text-gray-400">Entry</div>
-              <div className="text-lg font-bold text-green-400">{entryMultiplier.toFixed(2)}x</div>
+          {!canBuyIn && (
+            <div className="text-xs text-center mt-2 text-yellow-400">
+              {!isConnected ? '🔒 Wallet not connected' :
+               betAmount <= 0 ? '⚠ Enter bet amount' :
+               status === 'connecting' ? '⏳ Connecting...' :
+               status === 'crashed' ? '⏸ Wait for next round' :
+               isRugged ? '⚠ Game rugged' : ''}
             </div>
-            <button
-              onClick={handleCashOut}
-              disabled={!canCashOut}
-              className={`w-full py-4 rounded-lg font-bold text-sm transition-all ${
-                canCashOut
-                  ? 'bg-yellow-500 hover:bg-yellow-600 text-black animate-pulse'
-                  : 'bg-gray-700 text-gray-400 cursor-not-allowed'
-              }`}
-            >
-              {isProcessing
-                ? 'Processing...'
-                : isRugged
-                ? 'RUGGED'
-                : status === 'crashed'
-                ? 'CRASHED'
-                : `SELL @ ${currentMultiplier.toFixed(2)}x`}
-            </button>
-
-            {/* Cashout disabled reasons */}
-            {!canCashOut && hasBet && (
-              <div className="text-xs text-center mt-2">
-                {isRugged && (
-                  <span className="text-red-500 font-bold">⚠️ GAME RUGGED - Bet lost</span>
-                )}
-                {!isRugged && status === 'crashed' && (
-                  <span className="text-orange-400">💥 Game crashed - Bet lost</span>
-                )}
-                {!isRugged && status === 'countdown' && (
-                  <span className="text-gray-400">⏸️ Game not started yet</span>
-                )}
-              </div>
-            )}
+          )}
+        </div>
+      ) : (
+        <div>
+          <div className="flex items-center justify-between mb-2 px-1">
+            <span className="text-xs text-gray-400">Entry: <span className="text-primary font-bold">{entryMultiplier.toFixed(2)}x</span></span>
+            <span className="text-xs text-gray-400">Current: <span className="text-white font-bold">{currentMultiplier.toFixed(2)}x</span></span>
           </div>
-        )}
-      </div>
+          <button
+            onClick={handleCashOut}
+            disabled={!canCashOut}
+            className={`w-full py-3 rounded-lg font-bold text-sm transition-all ${
+              canCashOut
+                ? 'bg-gradient-to-br from-[#9B61DB] to-[#7457CC] hover:opacity-90 text-white animate-pulse active:scale-95'
+                : 'bg-background border border-border text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            {isProcessing ? 'Processing...' : isRugged ? 'RUGGED' : status === 'crashed' ? 'CRASHED' : `SELL @ ${currentMultiplier.toFixed(2)}x`}
+          </button>
+
+          {!canCashOut && hasBet && (
+            <div className="text-xs text-center mt-2">
+              {isRugged ? <span className="text-red-500 font-bold">⚠ RUGGED - Bet lost</span> :
+               status === 'crashed' ? <span className="text-orange-400">💥 Crashed - Bet lost</span> :
+               status === 'countdown' ? <span className="text-gray-400">⏸ Not started</span> : null}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

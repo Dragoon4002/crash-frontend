@@ -2,12 +2,63 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useWebSocket } from '@/contexts/WebSocketContext';
+import { usePrivy } from '@privy-io/react-auth';
 import { Send, Wifi, WifiOff } from 'lucide-react';
+
+const formatRelativeTime = (ts: string | number | Date | undefined | null) => {
+  if (!ts) return 'now';
+
+  let timestamp: number;
+
+  if (ts instanceof Date) {
+    timestamp = ts.getTime();
+  } else if (typeof ts === 'number') {
+    timestamp = ts < 1e12 ? ts * 1000 : ts;
+  } else {
+    const tsStr = String(ts).trim();
+
+    if (/^\d+$/.test(tsStr)) {
+      const num = parseInt(tsStr, 10);
+      timestamp = num < 1e12 ? num * 1000 : num;
+    } else {
+      // Handle SQL format: "2026-01-15 02:36:36.256662" -> parse as local time
+      // Handle RFC3339: "2026-01-15T02:36:36Z" (UTC)
+      let normalized = tsStr;
+
+      // Remove microseconds if present (JS Date doesn't handle them well)
+      normalized = normalized.replace(/\.\d{3,}$/, '');
+
+      if (normalized.includes(' ') && !normalized.includes('T')) {
+        // SQL format without timezone - treat as local time by NOT adding Z
+        normalized = normalized.replace(' ', 'T');
+      }
+
+      const parsed = new Date(normalized).getTime();
+      timestamp = isNaN(parsed) ? Date.now() : parsed;
+    }
+  }
+
+  const diff = Date.now() - timestamp;
+  if (diff < 0) return 'now'; // Future date protection
+
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'now';
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}hr`;
+  return `${Math.floor(hrs / 24)}d`;
+};
+
+const formatAddress = (addr: string) =>
+  addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '';
 
 export function ServerChat() {
   const { chatMessages, isConnected, connectedUsers, sendChatMessage, subscribe, unsubscribe } = useWebSocket();
+  const { user } = usePrivy();
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const walletAddress = user?.wallet?.address || '';
 
   useEffect(() => {
     subscribe('chat');
@@ -24,7 +75,7 @@ export function ServerChat() {
 
   const handleSend = () => {
     if (inputMessage.trim()) {
-      sendChatMessage(inputMessage);
+      sendChatMessage(inputMessage, walletAddress);
       setInputMessage('');
     }
   };
@@ -39,69 +90,62 @@ export function ServerChat() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="border-y border-[#30363d] px-4 py-3 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 w-full">
-            {isConnected ? (
-              <div className="flex justify-between w-full  items-center gap-1 text-green-400 text-xs">
-                <span className='flex items-center gap-1'>
-                  <Wifi className="w-3 h-3" />
-                  <span>Online</span>
-                </span>
-                <span>{connectedUsers} {connectedUsers > 1 ? 'Users' : 'User'}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1 text-red-400 text-xs">
-                <WifiOff className="w-3 h-3" />
-                <span>Offline</span>
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="border-y border-border px-4 py-3 shrink-0">
+        Server Chat
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-secondary">
         {chatMessages.length === 0 && (
           <div className="text-center text-gray-500 text-sm py-8">
             No messages yet. Be the first to say something!
           </div>
         )}
-        {chatMessages.map((msg, index) => (
-          <div
-            key={index}
-            className={`${
-              msg.type === 'system'
-                ? 'text-center'
-                : 'flex flex-col'
-            }`}
-          >
-            {msg.type === 'system' ? (
-              <div className="text-xs text-gray-500 italic">
-                {msg.message}
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-bold text-[#58a6ff]">
-                    {msg.username}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {new Date(msg.timestamp).toLocaleTimeString()}
-                  </span>
-                </div>
-                <div className="bg-[#232323] rounded-lg px-3 py-2 text-sm text-gray-300">
+        {chatMessages.map((msg, index) => {
+          const isOwnMessage = walletAddress && msg.walletAddress?.toLowerCase() === walletAddress.toLowerCase();
+
+          return (
+            <div
+              key={index}
+              className={`${
+                msg.type === 'system'
+                  ? 'text-center'
+                  : `flex flex-col max-w-[70%] ${isOwnMessage ? 'ml-auto' : 'mr-auto'}`
+              }`}
+            >
+              {msg.type === 'system' ? (
+                <div className="text-xs text-gray-500 italic">
                   {msg.message}
                 </div>
-              </>
-            )}
-          </div>
-        ))}
+              ) : (
+                <>
+                  <div className={`flex items-center gap-2 mb-1 justify-between`}>
+                    {(!isOwnMessage && msg.walletAddress && (
+                      <span className="text-xs text-gray-500 mt-1">
+                        {formatAddress(msg.walletAddress)}
+                      </span>
+                    )) || <div />}
+                    <span className="text-xs text-gray-500">
+                      {/* {formatRelativeTime(msg.timestamp)} */}
+                    </span>
+                  </div>
+                  <div className={`bg-sidebar border border-border px-3 py-2 text-sm text-white ${
+                    isOwnMessage
+                      ? 'rounded-lg rounded-br-none'
+                      : 'rounded-lg rounded-bl-none bg-linear-to-br from-[#9B61DB] to-[#7457CC]'
+                  }`}>
+                    {msg.message}
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })}
         <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
-      <div className="bg-[#161b22] border-t border-[#30363d] p-4 shrink-0">
+      <div className="bg-transparent border-t border-border p-4 shrink-0">
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -110,12 +154,12 @@ export function ServerChat() {
             onKeyPress={handleKeyPress}
             placeholder="Type a message..."
             disabled={!isConnected}
-            className="flex-1 bg-[#0d1117] border border-[#30363d] rounded px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#58a6ff] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 bg-background border border-border rounded px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-primary disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <button
             onClick={handleSend}
             disabled={!isConnected || !inputMessage.trim()}
-            className="p-2 bg-[#238636] hover:bg-[#2ea043] disabled:bg-gray-700 disabled:cursor-not-allowed rounded text-white transition-colors"
+            className="p-2 bg-gradient-to-br from-[#9B61DB] to-[#7457CC] hover:opacity-90 disabled:bg-gray-700 disabled:cursor-not-allowed rounded text-white transition-colors"
           >
             <Send className="w-5 h-5" />
           </button>

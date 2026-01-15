@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { showGlobalToast } from '@/components/ui/Toast';
 
 export interface ChatMessage {
   type: string;
-  username: string;
+  walletAddress: string;
   message: string;
   timestamp: string;
-  userId: string;
 }
 
 export interface GlobalRoom {
@@ -121,10 +121,22 @@ export function useUnifiedWebSocket(wsUrl: string) {
             break;
 
           case 'chat_message':
-            setState(prev => ({
-              ...prev,
-              chatMessages: [...prev.chatMessages, message as ChatMessage],
-            }));
+            setState(prev => {
+              const newMsg: ChatMessage = {
+                type: message.type,
+                walletAddress: message.playerAddress || '',
+                message: message.message,
+                timestamp: message.timestamp,
+              };
+              // Dedupe by timestamp + wallet + message
+              const isDuplicate = prev.chatMessages.some(
+                m => m.timestamp === newMsg.timestamp &&
+                     m.walletAddress === newMsg.walletAddress &&
+                     m.message === newMsg.message
+              );
+              if (isDuplicate) return prev;
+              return { ...prev, chatMessages: [...prev.chatMessages, newMsg] };
+            });
             break;
 
           case 'rooms_update':
@@ -137,15 +149,15 @@ export function useUnifiedWebSocket(wsUrl: string) {
             break;
 
           case 'crash_cashout_result':
-            // Show notification to user
-            const profit = message.profit || 0;
-            const profitSign = profit >= 0 ? '+' : '';
-            console.log(`💰 Cashout successful! ${profitSign}${profit.toFixed(4)} MNT`);
+            // Show toast notification
+            const payoutAmount = message.payoutAmount || 0;
+            console.log(`💰 Cashout successful! Received ${payoutAmount.toFixed(4)} MNT`);
 
-            // Could add a toast notification here
-            if (typeof window !== 'undefined' && window.alert) {
-              alert(`✅ ${message.message}\n\nProfit: ${profitSign}${profit.toFixed(4)} MNT`);
-            }
+            showGlobalToast(
+              `You have received ${payoutAmount.toFixed(4)} MNT in your wallet`,
+              'success',
+              payoutAmount
+            );
             break;
 
           default:
@@ -213,9 +225,12 @@ export function useUnifiedWebSocket(wsUrl: string) {
     }
   }, []);
 
-  const sendChatMessage = useCallback((message: string) => {
+  const sendChatMessage = useCallback((message: string, walletAddress?: string) => {
     if (message.trim()) {
-      sendMessage('chat_message', { message: message.trim() });
+      sendMessage('chat_message', {
+        message: message.trim(),
+        playerAddress: walletAddress || '',
+      });
     }
   }, [sendMessage]);
 

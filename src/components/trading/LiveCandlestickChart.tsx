@@ -17,9 +17,9 @@ export function LiveCandlestickChart() {
   const gameEnded = status === 'crashed' || rugged;
 
   return (
-    <Card className="bg-transparent border-white/5 p-0 overflow-hidden w-full h-full">
+    <Card className="bg-transparent border-border p-0 overflow-hidden w-full h-full">
       {/* Stats Bar
-      <div className="flex items-center gap-6 px-4 py-2.5 border-b border-white/5">
+      <div className="flex items-center gap-6 px-4 py-2.5 border-b border-border">
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-400">Status:</span>
           <span className={`text-xs font-semibold ${
@@ -76,7 +76,7 @@ export function LiveCandlestickChart() {
 
         {/* Game ID Badge */}
         {gameId && (
-          <div className="absolute top-4 left-4 bg-[#14141f]/90 px-3 py-1.5 rounded-lg border border-white/10">
+          <div className="absolute top-4 left-4 bg-sidebar/90 px-3 py-1.5 rounded-lg border border-white/10">
             <span className="text-xs text-gray-400">Game: </span>
             <span className="text-xs text-blue-400 font-mono">{gameId.slice(-8)}</span>
           </div>

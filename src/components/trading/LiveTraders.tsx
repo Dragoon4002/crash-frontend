@@ -6,8 +6,8 @@ import { mockTraders } from '@/lib/mockData';
 
 export function LiveTraders() {
   return (
-    <div className="w-72 bg-[#0a0a0f] border-l border-white/5">
-      <div className="p-3 border-b border-white/5">
+    <div className="w-72 bg-transparent border-l border-border">
+      <div className="p-3 border-b border-border">
         <h3 className="text-sm font-medium text-white">Live Traders</h3>
       </div>
       <ScrollArea className="h-[calc(100vh-12rem)]">

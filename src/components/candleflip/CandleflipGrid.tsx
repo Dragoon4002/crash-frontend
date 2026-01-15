@@ -15,7 +15,7 @@ export function CandleflipGrid() {
     return (
       <Card
         key={game.id}
-        className="bg-[#14141f] border-white/5 p-4 relative overflow-hidden hover:border-white/20 transition-colors"
+        className="bg-sidebar border-border p-4 relative overflow-hidden hover:border-white/20 transition-colors"
       >
         {/* Completed Indicator */}
         {isCompleted && (
@@ -67,7 +67,7 @@ export function CandleflipGrid() {
 
         {/* Mini Chart for Active Games */}
         {!isCompleted && (
-          <div className="mt-3 h-16 bg-[#0a0a0f] rounded border border-white/5 flex items-end justify-center gap-1 p-2">
+          <div className="mt-3 h-16 bg-transparent rounded border border-border flex items-end justify-center gap-1 p-2">
             {[0.8, 1.2, 0.9, 1.5, 1.8, 1.3, 1.1].map((value, idx) => (
               <div
                 key={idx}
@@ -81,11 +81,11 @@ export function CandleflipGrid() {
         {/* Result Indicator */}
         {isCompleted && (
           <div className="mt-3 flex items-center justify-center gap-2">
-            <div className="flex-1 h-12 bg-[#0a0a0f] rounded border border-white/5 flex items-center justify-center">
+            <div className="flex-1 h-12 bg-transparent rounded border border-border flex items-center justify-center">
               <div className={`h-8 w-16 ${winningSide === 'bullish' ? 'bg-green-500' : 'bg-red-500/20'} rounded`} />
             </div>
             <div className="text-gray-400">→</div>
-            <div className="flex-1 h-12 bg-[#0a0a0f] rounded border border-white/5 flex items-center justify-center">
+            <div className="flex-1 h-12 bg-transparent rounded border border-border flex items-center justify-center">
               <div className={`h-8 w-16 ${winningSide === 'bearish' ? 'bg-red-500' : 'bg-green-500/20'} rounded`} />
             </div>
           </div>

@@ -77,9 +77,8 @@ export function CandlestickCanvas({ history, currentMultiplier, status, rugged, 
 
     // Render function (60fps)
     const render = () => {
-      // Clear canvas
-      ctx.fillStyle = '#0d1117';
-      ctx.fillRect(0, 0, width, height);
+      // Clear canvas - use transparent to blend with page background
+      ctx.clearRect(0, 0, width, height);
 
       // Draw grid
       drawGrid(ctx, padding, chartWidth, chartHeight);
@@ -249,7 +248,7 @@ function drawYAxis(
   valueToY: (value: number) => number
 ) {
   ctx.font = '13px monospace';
-  ctx.fillStyle = '#8b949e';
+  ctx.fillStyle = '#9263E1';
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
 
@@ -267,7 +266,7 @@ function drawYAxis(
     const y = valueToY(currentValue);
 
     // Draw price label on the right
-    ctx.fillStyle = '#8b949e';
+    ctx.fillStyle = '#9263E1';
     ctx.textAlign = 'left';
     ctx.fillText(`${currentValue.toFixed(2)}x`, padding.left + chartWidth + 10, y);
 
@@ -275,7 +274,7 @@ function drawYAxis(
   }
 
   // Draw Y-axis line
-  ctx.strokeStyle = '#30363d';
+  ctx.strokeStyle = '#9263E1';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(padding.left, padding.top);
@@ -293,10 +292,10 @@ function drawXAxis(
   chartHeight: number,
   dataPoints: number
 ) {
-  ctx.strokeStyle = '#30363d';
+  ctx.strokeStyle = '#9263E1';
   ctx.lineWidth = 2;
   ctx.font = '12px monospace';
-  ctx.fillStyle = '#8b949e';
+  ctx.fillStyle = '#9263E1';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
 
@@ -342,7 +341,8 @@ function drawCandles(
 
     // Use bright red for rug pull candle
     const color = isRugPull ? '#ff0000' : (isGreen ? '#26a69a' : '#ef5350');
-    const wickColor = isRugPull ? '#ff0000' : (isGreen ? '#26a69a' : '#ef5350');
+    // Dimmer wick colors
+    const wickColor = isRugPull ? '#aa0000' : (isGreen ? '#1a756c' : '#a63a38');
 
     const x = padding.left + (index * (candleWidth + spacing));
 
@@ -363,31 +363,36 @@ function drawCandles(
     ctx.lineTo(x + candleWidth / 2, yLow);
     ctx.stroke();
 
-    // Draw body
+    // Draw body with rounded corners
+    const borderRadius = 2;
     if (isRugPull) {
       // Rug pull candle - extra thick red candle
       ctx.fillStyle = color;
-      ctx.fillRect(x, bodyTop, candleWidth, bodyHeight);
+      ctx.beginPath();
+      ctx.roundRect(x, bodyTop, candleWidth, bodyHeight, borderRadius);
+      ctx.fill();
 
       // Add glow effect for rug pull
       ctx.shadowColor = '#ff0000';
       ctx.shadowBlur = 15;
-      ctx.fillRect(x, bodyTop, candleWidth, bodyHeight);
+      ctx.beginPath();
+      ctx.roundRect(x, bodyTop, candleWidth, bodyHeight, borderRadius);
+      ctx.fill();
       ctx.shadowBlur = 0;
-    } else if (isGreen) {
-      // Green candle - filled
-      ctx.fillStyle = color;
-      ctx.fillRect(x, bodyTop, candleWidth, bodyHeight);
     } else {
-      // Red candle - filled
+      // Normal candle - filled with rounded corners
       ctx.fillStyle = color;
-      ctx.fillRect(x, bodyTop, candleWidth, bodyHeight);
+      ctx.beginPath();
+      ctx.roundRect(x, bodyTop, candleWidth, bodyHeight, borderRadius);
+      ctx.fill();
     }
 
-    // Draw border
+    // Draw border with rounded corners
     ctx.strokeStyle = color;
     ctx.lineWidth = isRugPull ? 2 : 1;
-    ctx.strokeRect(x, bodyTop, candleWidth, bodyHeight);
+    ctx.beginPath();
+    ctx.roundRect(x, bodyTop, candleWidth, bodyHeight, borderRadius);
+    ctx.stroke();
   });
 }
 
@@ -457,7 +462,7 @@ function drawCurrentPriceLine(
 
   // Draw dashed line
   ctx.setLineDash([5, 5]);
-  ctx.strokeStyle = '#00ff88';
+  ctx.strokeStyle = '#9263E1';
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(padding.left, y);
@@ -466,9 +471,9 @@ function drawCurrentPriceLine(
   ctx.setLineDash([]);
 
   // Draw price label
-  ctx.fillStyle = '#00ff88';
+  ctx.fillStyle = '#9263E1';
   ctx.fillRect(padding.left + chartWidth + 5, y - 12, 70, 24);
-  ctx.fillStyle = '#0d1117';
+  ctx.fillStyle = '#12051C';
   ctx.font = 'bold 12px monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -494,7 +499,7 @@ function drawMultiplierText(
   ctx.textBaseline = 'middle';
 
   // Glow effect
-  ctx.shadowColor = status === 'crashed' ? '#ff4444' : '#00ff88';
+  ctx.shadowColor = status === 'crashed' ? '#ff4444' : '#9263E1';
   ctx.shadowBlur = 30;
 
   ctx.fillText(text, width / 2, height / 2);

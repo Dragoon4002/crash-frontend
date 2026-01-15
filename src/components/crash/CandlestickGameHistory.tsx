@@ -58,13 +58,13 @@ export function CandlestickGameHistory({ history }: CandlestickGameHistoryProps)
       }, 600);
     }
 
-    setDisplayedHistory(history.slice(0, 10));
+    setDisplayedHistory(history.slice(0, 15));
     previousHistoryRef.current = history;
   }, [history]);
 
   if (!displayedHistory || displayedHistory.length === 0) {
     return (
-      <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
+      <div className="bg-transparent border border-border rounded-lg p-6 pb-0">
         <h3 className="text-sm font-medium text-gray-400 mb-4">Recent Games</h3>
         <div className="flex items-center justify-center h-32 text-gray-500 text-sm">
           No game history yet
@@ -74,12 +74,8 @@ export function CandlestickGameHistory({ history }: CandlestickGameHistoryProps)
   }
 
   return (
-    <div className="bg-[#161b22] border border-[#30363d] rounded-lg p-6">
-      <h3 className="text-sm font-medium text-gray-400 mb-4">
-        Recent Games ({displayedHistory.length})
-      </h3>
-
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+    <div className="bg-transparent border-t border-border p-4 pb-0">
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
         {displayedHistory.map((game, index) => (
           <MiniGameBlock
             key={game.gameId || index}
@@ -92,8 +88,59 @@ export function CandlestickGameHistory({ history }: CandlestickGameHistoryProps)
   );
 }
 
+// Helper to get multiplier color (primary to white gradient based on value)
+function getMultiplierColor(multiplier: number, rugged: boolean): string {
+  if (rugged) return '#ef4444';
+
+  // Clamp multiplier between 1 and 10 for color interpolation
+  const t = Math.min(Math.max((multiplier - 1) / 9, 0), 1);
+
+  // Interpolate from primary (#9263E1) to white (#ffffff)
+  const r = Math.round(146 + (255 - 146) * t);
+  const g = Math.round(99 + (255 - 99) * t);
+  const b = Math.round(225 + (255 - 225) * t);
+
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+// Merge candles to fit within target count
+function mergeCandles(candles: CandleGroup[], targetCount: number): CandleGroup[] {
+  if (candles.length <= targetCount) return candles;
+
+  let merged = [...candles];
+
+  while (merged.length > targetCount) {
+    const newMerged: CandleGroup[] = [];
+
+    for (let i = 0; i < merged.length - 1; i += 2) {
+      const c1 = merged[i];
+      const c2 = merged[i + 1];
+
+      newMerged.push({
+        open: c1.open,
+        close: c2.close,
+        max: Math.max(c1.max, c2.max),
+        min: Math.min(c1.min, c2.min),
+        isComplete: true,
+      });
+    }
+
+    if (merged.length % 2 === 1) {
+      newMerged.push(merged[merged.length - 1]);
+    }
+
+    merged = newMerged;
+  }
+
+  return merged;
+}
+
 function MiniGameBlock({ game, isNew }: { game: GameHistoryItem; isNew?: boolean }) {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
+
+  // Slimmer card dimensions
+  const cardWidth = 80;
+  const cardHeight = 50;
 
   React.useEffect(() => {
     const canvas = canvasRef.current;
@@ -103,24 +150,21 @@ function MiniGameBlock({ game, isNew }: { game: GameHistoryItem; isNew?: boolean
     if (!ctx) return;
 
     // Set canvas size
-    const width = 120;
-    const height = 80;
-    canvas.width = width;
-    canvas.height = height;
+    canvas.width = cardWidth;
+    canvas.height = cardHeight;
 
     // Clear canvas
-    ctx.fillStyle = '#0d1117';
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#251337';
+    ctx.fillRect(0, 0, cardWidth, cardHeight);
 
     // Check if we have candle data
     if (!game.candles || !Array.isArray(game.candles) || game.candles.length === 0) {
-      // Draw a simple peak indicator if no candle data
-      drawSimplePeakIndicator(ctx, width, height, game.peakMultiplier, game.rugged);
+      drawSimplePeakIndicator(ctx, cardWidth, cardHeight, game.peakMultiplier, game.rugged);
       return;
     }
 
-    // Convert CandleGroup data to simplified format for mini chart
-    const candleGroups: CandleGroup[] = game.candles.map((candle) => ({
+    // Convert CandleGroup data
+    let candleGroups: CandleGroup[] = game.candles.map((candle) => ({
       open: candle.open || 1.0,
       close: candle.close ?? candle.open ?? 1.0,
       max: candle.max || 1.0,
@@ -128,49 +172,45 @@ function MiniGameBlock({ game, isNew }: { game: GameHistoryItem; isNew?: boolean
       isComplete: candle.isComplete ?? true,
     }));
 
-    drawMiniCandlestickChart(ctx, width, height, candleGroups, game.rugged);
-  }, [game]);
+    // Calculate max candles that fit (candleWidth=2, spacing=1)
+    const padding = 4;
+    const availableWidth = cardWidth - padding * 2;
+    const candleWidth = 2;
+    const spacing = 1;
+    const maxCandles = Math.floor((availableWidth + spacing) / (candleWidth + spacing));
 
-  // Determine color based on peak
-  const peakColor = game.rugged 
-    ? '#ef4444' 
-    : game.peakMultiplier >= 10 
-    ? '#10b981' 
-    : game.peakMultiplier >= 2 
-    ? '#3b82f6' 
-    : '#8b949e';
+    // Merge candles if needed
+    candleGroups = mergeCandles(candleGroups, maxCandles);
+
+    drawMiniCandlestickChart(ctx, cardWidth, cardHeight, candleGroups, game.rugged);
+  }, [game, cardWidth, cardHeight]);
+
+  const peakColor = getMultiplierColor(game.peakMultiplier, game.rugged);
 
   return (
-    <div className={`bg-[#0d1117] border border-[#30363d] rounded-lg overflow-hidden hover:border-[#58a6ff] transition-all group cursor-pointer ${
+    <div className={`flex-shrink-0 bg-sidebar border border-border rounded-md overflow-hidden hover:border-primary transition-all cursor-pointer ${
       isNew ? 'animate-slideInScale' : ''
-    }`}>
+    }`} style={{ width: cardWidth }}>
       {/* Canvas */}
-      <div className="relative h-20">
+      <div className="relative" style={{ height: cardHeight }}>
         <canvas
           ref={canvasRef}
           className="w-full h-full"
           style={{ display: 'block' }}
         />
-        
-        {/* Overlay info */}
-        <div className="absolute top-1 right-1 bg-black/50 px-1.5 py-0.5 rounded text-xs font-mono">
+
+        {/* Multiplier overlay */}
+        <div className="absolute bottom-0.5 right-0.5 bg-black/60 px-1 py-0.5 rounded text-[10px] font-mono font-bold">
           <span style={{ color: peakColor }}>
             {game.peakMultiplier.toFixed(2)}x
           </span>
         </div>
 
         {game.rugged && (
-          <div className="absolute inset-0 flex items-center justify-center bg-red-500/10">
-            <span className="text-red-500 text-xs font-bold">RUGGED</span>
+          <div className="absolute inset-0 flex items-center justify-center bg-red-500/20">
+            <span className="text-red-500 text-[9px] font-bold">RUG</span>
           </div>
         )}
-      </div>
-
-      {/* Footer */}
-      <div className="px-2 py-1.5 border-t border-[#30363d] bg-[#161b22]">
-        <div className="text-xs text-gray-500 truncate font-mono">
-          {game.gameId ? `#${game.gameId.slice(-8)}` : 'Game'}
-        </div>
       </div>
     </div>
   );
@@ -186,7 +226,7 @@ function drawMiniCandlestickChart(
 ) {
   if (candles.length === 0) return;
 
-  const padding = { top: 5, right: 5, bottom: 5, left: 5 };
+  const padding = { top: 4, right: 4, bottom: 4, left: 4 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
@@ -204,20 +244,20 @@ function drawMiniCandlestickChart(
     return padding.top + chartHeight * (1 - normalized);
   };
 
-  // Draw candles with fixed width and centered layout
-  const fixedCandleWidth = 3; // Fixed small width for all candles
-  const fixedSpacing = 1.5;   // Fixed spacing between candles
-  const totalCandlesWidth = candles.length * fixedCandleWidth + (candles.length - 1) * fixedSpacing;
-  const startX = padding.left + (chartWidth - totalCandlesWidth) / 2; // Center the candles
+  // Draw candles with smaller width for slim cards
+  const candleWidth = 2;
+  const spacing = 1;
+  const totalCandlesWidth = candles.length * candleWidth + (candles.length - 1) * spacing;
+  const startX = padding.left + (chartWidth - totalCandlesWidth) / 2;
 
   candles.forEach((candle, index) => {
-    const x = startX + index * (fixedCandleWidth + fixedSpacing);
-    
+    const x = startX + index * (candleWidth + spacing);
+
     const isGreen = candle.close >= candle.open;
-    const color = rugged && index === candles.length - 1 
-      ? '#ef4444' 
-      : isGreen 
-      ? '#26a69a' 
+    const color = rugged && index === candles.length - 1
+      ? '#ef4444'
+      : isGreen
+      ? '#26a69a'
       : '#ef5350';
 
     const yOpen = valueToY(candle.open);
@@ -233,19 +273,19 @@ function drawMiniCandlestickChart(
     ctx.strokeStyle = color;
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(x + fixedCandleWidth / 2, yHigh);
-    ctx.lineTo(x + fixedCandleWidth / 2, yLow);
+    ctx.moveTo(x + candleWidth / 2, yHigh);
+    ctx.lineTo(x + candleWidth / 2, yLow);
     ctx.stroke();
 
     // Draw body
     ctx.fillStyle = color;
-    ctx.fillRect(x, bodyTop, fixedCandleWidth, bodyHeight);
+    ctx.fillRect(x, bodyTop, candleWidth, bodyHeight);
   });
 
   // Draw 1.0x reference line
   if (yMin <= 1.0 && yMax >= 1.0) {
     const y1 = valueToY(1.0);
-    ctx.strokeStyle = '#30363d';
+    ctx.strokeStyle = 'rgba(146, 99, 225, 0.4)';
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 2]);
     ctx.beginPath();
@@ -264,19 +304,20 @@ function drawSimplePeakIndicator(
   peak: number,
   rugged: boolean
 ) {
-  const padding = { top: 10, right: 10, bottom: 10, left: 10 };
+  const padding = { top: 6, right: 6, bottom: 6, left: 6 };
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
 
   // Draw a simple line from 1.0x to peak
   const startY = padding.top + chartHeight;
   const peakY = padding.top + chartHeight * (1 - Math.min(peak / 10, 1));
-  
-  const color = rugged ? '#ef4444' : peak >= 10 ? '#10b981' : '#3b82f6';
+
+  // Use primary-to-white color based on multiplier
+  const color = rugged ? '#ef4444' : getMultiplierColor(peak, false);
 
   // Draw line
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(padding.left, startY);
   ctx.lineTo(padding.left + chartWidth, peakY);
@@ -285,18 +326,18 @@ function drawSimplePeakIndicator(
   // Draw start point
   ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.arc(padding.left, startY, 2, 0, Math.PI * 2);
+  ctx.arc(padding.left, startY, 1.5, 0, Math.PI * 2);
   ctx.fill();
 
   // Draw end point
   ctx.beginPath();
-  ctx.arc(padding.left + chartWidth, peakY, 3, 0, Math.PI * 2);
+  ctx.arc(padding.left + chartWidth, peakY, 2, 0, Math.PI * 2);
   ctx.fill();
 
   if (rugged) {
     // Draw crash effect
     ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(padding.left + chartWidth, peakY);
     ctx.lineTo(padding.left + chartWidth, startY);

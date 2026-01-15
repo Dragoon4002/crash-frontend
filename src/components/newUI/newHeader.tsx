@@ -1,23 +1,45 @@
 'use client'
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChevronLeft, ChevronRight, Flame, Heart, Swords, Wallet } from 'lucide-react';
+import { Flame, Gift, Swords, Wallet, Trophy } from 'lucide-react';
 import { GameMode } from '@/lib/types';
+import Link from 'next/link';
 
 interface HeaderProps {
   currentMode: GameMode;
   onModeChange: (mode: GameMode) => void;
 }
 
-export function NewHeader({ currentMode, onModeChange }: HeaderProps) {
-  const [level] = useState(0);
-  const { ready, authenticated, user, login, logout } = usePrivy();
+const NAV_ITEMS = [
+  { id: 'standard', label: 'Crash', icon: Flame },
+  { id: 'candleflip', label: 'CandleFlip', icon: Gift },
+  { id: 'battles', label: 'Battle', icon: Swords },
+] as const;
 
-  // Get shortened wallet address
+export function NewHeader({ currentMode, onModeChange }: HeaderProps) {
+  const { ready, authenticated, user, login, logout } = usePrivy();
+  const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
+  const navRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  // Update indicator position when active item changes
+  useEffect(() => {
+    const activeIndex = NAV_ITEMS.findIndex(item => item.id === currentMode);
+    const activeItem = itemRefs.current[activeIndex];
+
+    if (activeItem && navRef.current) {
+      const navRect = navRef.current.getBoundingClientRect();
+      const itemRect = activeItem.getBoundingClientRect();
+
+      setIndicatorStyle({
+        left: itemRect.left - navRect.left,
+        width: itemRect.width,
+      });
+    }
+  }, [currentMode]);
+
   const getShortAddress = (address: string) => {
     if (!address) return '';
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -26,61 +48,60 @@ export function NewHeader({ currentMode, onModeChange }: HeaderProps) {
   const walletAddress = user?.wallet?.address;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/20 w-full h-15 backdrop-blur">
+    <header className="sticky top-0 z-50 border-border w-full h-15 backdrop-blur bg-sidebar/95">
       <div className="flex h-full items-center justify-between px-4">
 
-        {/* Game Mode Tabs */}
-        <Tabs value={currentMode} onValueChange={(value) => onModeChange(value as GameMode)} className="flex-1 flex justify-center ">
-          <TabsList className=" p-0.5 h-9 bg-transparent">
-            <TabsTrigger
-              value="standard"
-              className="data-[state=active]:bg-orange-500/20 data-[state=active]:text-white gap-1.5 text-xs px-3 h-8"
-            >
-              <Flame className="h-3.5 w-3.5" />
-              Standard
-            </TabsTrigger>
-            <TabsTrigger
-              value="candleflip"
-              className="data-[state=active]:bg-orange-500/20 data-[state=active]:text-white gap-1.5 text-xs px-3 h-8"
-            >
-              <Heart className="h-3.5 w-3.5" />
-              Candleflip
-            </TabsTrigger>
-            <TabsTrigger
-              value="battles"
-              className="data-[state=active]:bg-orange-500/20 data-[state=active]:text-white gap-1.5 text-xs px-3 h-8"
-            >
-              <Swords className="h-3.5 w-3.5" />
-              Battles
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {/* Animated Navigation */}
+        <nav
+          ref={navRef}
+          className="relative flex items-center bg-sidebar border-2 border-border rounded-full p-1.5 mx-auto"
+        >
+          {/* Animated background indicator */}
+          <div
+            className="absolute top-1.5 bottom-1.5 rounded-full bg-gradient-to-br from-[#9B61DB] to-[#7457CC] transition-all duration-300 ease-out"
+            style={{
+              left: indicatorStyle.left,
+              width: indicatorStyle.width,
+            }}
+          />
 
-        {/* Level & Connect */}
+          {/* Nav items */}
+          {NAV_ITEMS.map((item, index) => {
+            const Icon = item.icon;
+            const isActive = currentMode === item.id;
+
+            return (
+              <button
+                key={item.id}
+                ref={(el) => { itemRefs.current[index] = el; }}
+                onClick={() => onModeChange(item.id as GameMode)}
+                className={`
+                  relative z-10 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-display
+                  transition-colors duration-200
+                  ${isActive ? 'text-white' : 'text-white/60 hover:text-white/80'}
+                `}
+              >
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Leaderboard & Connect */}
         <div className="flex items-center gap-3 min-w-[180px] justify-end">
-          {/* Level Indicator */}
-          <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-white/5">
-              <ChevronLeft className="h-3.5 w-3.5 text-gray-400" />
+          {/* Leaderboard Link */}
+          <Link href="/leaderboard">
+            <Button variant="ghost" className="flex items-center gap-2 hover:bg-white/5 text-white/60 hover:text-white">
+              <Trophy className="h-4 w-4" />
+              <span className="text-sm font-medium">Leaderboard</span>
             </Button>
-            <div className="flex items-center gap-2 rounded-lg bg-[#14141f] px-2.5 py-1.5 border border-white/5 min-w-[100px]">
-              <div className="text-base">🏆</div>
-              <div className="flex-1">
-                <div className="text-[10px] text-white font-bold">Level {level}</div>
-                <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-orange-500 to-yellow-500" style={{ width: '30%' }} />
-                </div>
-              </div>
-            </div>
-            <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-white/5">
-              <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
-            </Button>
-          </div>
+          </Link>
 
           {/* Connect/Wallet Button */}
           {ready && authenticated ? (
             <div className="flex items-center gap-2">
-              <div className="bg-[#14141f] border border-white/10 px-3 py-1.5 rounded-lg">
+              <div className="bg-sidebar border border-border px-3 py-1.5 rounded-lg">
                 <div className="flex items-center gap-2">
                   <Wallet className="h-3.5 w-3.5 text-green-400" />
                   <span className="text-xs font-mono text-white">
@@ -91,7 +112,7 @@ export function NewHeader({ currentMode, onModeChange }: HeaderProps) {
               <Button
                 onClick={logout}
                 variant="outline"
-                className="h-9 text-xs px-4 border-white/10 hover:bg-white/5"
+                className="h-9 text-xs px-4 border-white/10 hover:bg-white/5 text-white"
               >
                 Disconnect
               </Button>
@@ -100,7 +121,7 @@ export function NewHeader({ currentMode, onModeChange }: HeaderProps) {
             <Button
               onClick={login}
               disabled={!ready}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-5 h-9 text-xs rounded-full flex items-center gap-2"
+              className="bg-gradient-to-br from-[#9B61DB] to-[#7457CC] hover:opacity-90 text-white font-bold px-5 h-9 text-xs rounded-full flex items-center gap-2"
             >
               <Wallet className="h-4 w-4" />
               {ready ? 'Connect Wallet' : 'Loading...'}

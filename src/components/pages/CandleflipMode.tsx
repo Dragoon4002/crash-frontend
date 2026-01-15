@@ -86,163 +86,13 @@ export function CandleflipMode() {
   const canPlaceBet = betAmount * numberOfRooms <= balance;
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-[#0d1117]">
-      {/* Betting Controls Navbar */}
-      <div className="bg-[#161b22] border-b border-[#30363d] shrink-0">
-        <div className="px-6 py-4">
-          <div className="flex flex-wrap items-center gap-4">
-            {/* Bet Amount */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-400">Bet Amount</span>
-              <div className="flex items-center gap-1">
-                <input
-                  type="number"
-                  value={betAmount}
-                  onChange={(e) => setBetAmount(parseFloat(e.target.value) || 0)}
-                  className="w-24 bg-[#0d1117] border border-[#30363d] rounded px-3 py-2 text-sm font-mono focus:outline-none focus:border-[#58a6ff] text-white"
-                  step="0.01"
-                  min="0.01"
-                />
-                <span className="text-sm text-gray-400">MNT</span>
-              </div>
-            </div>
-
-            {/* Quick Amount Buttons */}
-            <div className="flex items-center gap-1">
-              {quickAmounts.map((amount) => (
-                <button
-                  key={amount}
-                  onClick={() => setBetAmount(amount)}
-                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                    betAmount === amount
-                      ? 'bg-[#58a6ff] text-white'
-                      : 'bg-[#0d1117] text-gray-400 hover:bg-[#1f2428] border border-[#30363d]'
-                  }`}
-                >
-                  {amount}
-                </button>
-              ))}
-              <button
-                onClick={() => setBetAmount(betAmount * 2)}
-                className="p-1.5 bg-[#0d1117] border border-[#30363d] rounded hover:bg-[#1f2428] text-gray-400"
-                title="Double"
-              >
-                ×2
-              </button>
-              <button
-                onClick={() => setBetAmount(Math.max(0.01, betAmount / 2))}
-                className="p-1.5 bg-[#0d1117] border border-[#30363d] rounded hover:bg-[#1f2428] text-gray-400"
-                title="Half"
-              >
-                ÷2
-              </button>
-              <button
-                onClick={() => setBetAmount(balance)}
-                className="px-3 py-1.5 bg-[#0d1117] border border-[#30363d] rounded text-xs font-medium hover:bg-[#1f2428] text-gray-400"
-                title="Max"
-              >
-                MAX
-              </button>
-            </div>
-
-            <div className="h-6 w-px bg-[#30363d]"></div>
-
-            {/* Trend Selection */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-400">Trend</span>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => setTrend('bullish')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded font-medium transition-colors ${
-                    trend === 'bullish'
-                      ? 'bg-gradient-to-r from-green-600 to-green-500 text-white'
-                      : 'bg-[#0d1117] text-gray-400 hover:bg-[#1f2428] border border-[#30363d]'
-                  }`}
-                >
-                  <TrendingUp className="w-4 h-4" />
-                  Bullish
-                </button>
-                <button
-                  onClick={() => setTrend('bearish')}
-                  className={`flex items-center gap-2 px-4 py-2 rounded font-medium transition-colors ${
-                    trend === 'bearish'
-                      ? 'bg-gradient-to-r from-red-600 to-red-500 text-white'
-                      : 'bg-[#0d1117] text-gray-400 hover:bg-[#1f2428] border border-[#30363d]'
-                  }`}
-                >
-                  <TrendingDown className="w-4 h-4" />
-                  Bearish
-                </button>
-              </div>
-            </div>
-
-            <div className="h-6 w-px bg-[#30363d]"></div>
-
-            {/* Number of Rooms */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-400">Rooms</span>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => setNumberOfRooms(Math.max(1, numberOfRooms - 1))}
-                  className="p-1.5 bg-[#0d1117] border border-[#30363d] rounded hover:bg-[#1f2428]"
-                >
-                  <Minus className="w-4 h-4 text-gray-400" />
-                </button>
-                <div className="w-16 bg-[#0d1117] border border-[#30363d] rounded px-3 py-2 text-center text-sm font-mono text-white">
-                  {numberOfRooms}
-                </div>
-                <button
-                  onClick={() => setNumberOfRooms(Math.min(10, numberOfRooms + 1))}
-                  className="p-1.5 bg-[#0d1117] border border-[#30363d] rounded hover:bg-[#1f2428]"
-                >
-                  <Plus className="w-4 h-4 text-gray-400" />
-                </button>
-              </div>
-            </div>
-
-            <div className="h-6 w-px bg-[#30363d]"></div>
-
-            {/* Total Bet & Balance */}
-            <div className="flex items-center gap-4 ml-auto">
-              <div className="text-sm">
-                <span className="text-gray-400">Total Bet: </span>
-                <span className="font-mono font-bold text-white">{(betAmount * numberOfRooms).toFixed(3)} MNT</span>
-              </div>
-              <div className="text-sm">
-                <span className="text-gray-400">Balance: </span>
-                <span className="font-mono font-bold text-[#ffd700]">{balance.toFixed(3)} MNT</span>
-              </div>
-
-              {/* Create Button */}
-              <button
-                onClick={handleCreateRooms}
-                disabled={!canPlaceBet || !isConnected || !walletConnected || isPlacing}
-                className={`px-6 py-2.5 rounded-lg font-bold transition-all ${
-                  canPlaceBet && isConnected && walletConnected && !isPlacing
-                    ? 'bg-gradient-to-r from-[#ffd700] to-[#ffed4e] text-[#0d1117] hover:shadow-lg hover:shadow-[#ffd700]/50'
-                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                {isPlacing ? 'Creating...' : 'Create'}
-              </button>
-            </div>
-          </div>
-
-          {/* Warning if insufficient balance */}
-          {!canPlaceBet && (
-            <div className="mt-3 p-2 bg-red-500/10 border border-red-500/30 rounded text-sm text-red-400">
-              ⚠️ Insufficient balance. Total bet ({(betAmount * numberOfRooms).toFixed(3)} MNT) exceeds balance.
-            </div>
-          )}
-        </div>
-      </div>
-
+    <div className="flex-1 flex flex-col overflow-hidden bg-background">
       {/* Rooms Grid */}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-7xl mx-auto px-6 py-6">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-300">
-              Open Lobbies <span className="text-[#58a6ff]">{candleflipRooms.length}</span>
+              Open Lobbies <span className="text-primary">{candleflipRooms.length}</span>
             </h2>
             {!isConnected && (
               <p className="text-sm text-red-400">
@@ -257,7 +107,7 @@ export function CandleflipMode() {
           </div>
 
           {candleflipRooms.length === 0 ? (
-            <div className="flex items-center justify-center h-64 bg-[#161b22] border border-[#30363d] rounded-lg">
+            <div className="flex items-center justify-center h-64 ">
               <div className="text-center">
                 <div className="text-6xl mb-4">🎮</div>
                 <p className="text-gray-400 text-lg mb-2">No active rooms</p>
@@ -280,6 +130,171 @@ export function CandleflipMode() {
                   onFinished={() => {}}
                 />
               ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Betting Controls Panel - Bottom */}
+      <div className="bg-transparent shrink-0 border-t">
+        <div className="px-6 py-5">
+          <div className="flex items-center gap-6">
+            {/* Left: Controls Panel */}
+            <div className="flex flex-col gap-4 border border-border rounded-lg p-4 bg-sidebar">
+              {/* Top Row: BET AMOUNT */}
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400 text-sm font-medium w-24">BET AMOUNT</span>
+                <button
+                  onClick={() => setBetAmount(Math.max(0.01, parseFloat((betAmount / 2).toFixed(2))))}
+                  className="w-14 py-2 bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-lg text-sm text-white font-medium hover:opacity-90 transition-all active:scale-95"
+                >
+                  /2
+                </button>
+                <button
+                  onClick={() => setBetAmount(Math.max(0.01, parseFloat((betAmount - 0.1).toFixed(2))))}
+                  className="w-14 py-2 bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-lg text-sm text-white font-medium hover:opacity-90 transition-all active:scale-95"
+                >
+                  - 0.1
+                </button>
+                <button
+                  onClick={() => setBetAmount(Math.max(0.01, parseFloat((betAmount - 0.01).toFixed(2))))}
+                  className="w-14 py-2 bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-lg text-sm text-white font-medium hover:opacity-90 transition-all active:scale-95"
+                >
+                  - 0.01
+                </button>
+                <input
+                  type="text"
+                  value={betAmount.toFixed(2)}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    if (!isNaN(val) && val >= 0.01) setBetAmount(parseFloat(val.toFixed(2)));
+                  }}
+                  className="w-20 px-3 py-2 bg-background border border-border rounded-lg text-center text-white font-mono focus:outline-none focus:border-primary"
+                />
+                <span className="text-gray-400 text-sm">MNT</span>
+                <button
+                  onClick={() => setBetAmount(parseFloat((betAmount + 0.01).toFixed(2)))}
+                  className="w-14 py-2 bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-lg text-sm text-white font-medium hover:opacity-90 transition-all active:scale-95"
+                >
+                  + 0.01
+                </button>
+                <button
+                  onClick={() => setBetAmount(parseFloat((betAmount + 0.1).toFixed(2)))}
+                  className="w-14 py-2 bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-lg text-sm text-white font-medium hover:opacity-90 transition-all active:scale-95"
+                >
+                  + 0.1
+                </button>
+                <button
+                  onClick={() => setBetAmount(parseFloat((betAmount * 2).toFixed(2)))}
+                  className="w-14 py-2 bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-lg text-sm text-white font-medium hover:opacity-90 transition-all active:scale-95"
+                >
+                  *2
+                </button>
+              </div>
+
+              {/* Bottom Row: ROOMS + TREND */}
+              <div className="flex items-center gap-2">
+                {/* Rooms Section */}
+                <span className="text-gray-400 text-sm font-medium w-24">ROOMS</span>
+                <button
+                  onClick={() => setNumberOfRooms(Math.max(1, Math.floor(numberOfRooms / 2)))}
+                  className="w-14 py-2 bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-lg text-sm text-white font-medium hover:opacity-90 transition-all active:scale-95"
+                >
+                  /2
+                </button>
+                <button
+                  onClick={() => setNumberOfRooms(Math.max(1, numberOfRooms - 2))}
+                  className="w-14 py-2 bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-lg text-sm text-white font-medium hover:opacity-90 transition-all active:scale-95"
+                >
+                  - 2
+                </button>
+                <button
+                  onClick={() => setNumberOfRooms(Math.max(1, numberOfRooms - 1))}
+                  className="w-14 py-2 bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-lg text-sm text-white font-medium hover:opacity-90 transition-all active:scale-95"
+                >
+                  - 1
+                </button>
+                <input
+                  type="text"
+                  value={numberOfRooms}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value);
+                    if (!isNaN(val) && val >= 1 && val <= 10) setNumberOfRooms(val);
+                  }}
+                  className="w-20 px-3 py-2 bg-background border border-border rounded-lg text-center text-white font-mono focus:outline-none focus:border-primary"
+                />
+                <button
+                  onClick={() => setNumberOfRooms(Math.min(10, numberOfRooms + 1))}
+                  className="w-14 py-2 bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-lg text-sm text-white font-medium hover:opacity-90 transition-all active:scale-95"
+                >
+                  + 1
+                </button>
+                <button
+                  onClick={() => setNumberOfRooms(Math.max(1, numberOfRooms + 2))}
+                  className="w-14 py-2 bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-lg text-sm text-white font-medium hover:opacity-90 transition-all active:scale-95"
+                >
+                  + 2
+                </button>
+                <button
+                  onClick={() => setNumberOfRooms(Math.min(10, numberOfRooms * 2))}
+                  className="w-14 py-2 bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-lg text-sm text-white font-medium hover:opacity-90 transition-all active:scale-95"
+                >
+                  *2
+                </button>
+
+                <div className="h-8 w-px bg-border mx-2"></div>
+
+                {/* Trend Section */}
+                <span className="text-gray-400 text-sm font-medium">Trend</span>
+                <div className="flex gap-1 bg-background border border-border rounded-lg p-1">
+                  <button
+                    onClick={() => setTrend('bearish')}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all active:scale-95 ${
+                      trend === 'bearish'
+                        ? 'bg-gradient-to-br from-[#9B61DB] to-[#7457CC] text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Bearish
+                  </button>
+                  <button
+                    onClick={() => setTrend('bullish')}
+                    className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all active:scale-95 ${
+                      trend === 'bullish'
+                        ? 'bg-gradient-to-br from-[#9B61DB] to-[#7457CC] text-white'
+                        : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    Bullish
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Create Button & Info */}
+            <div className="flex flex-col gap-3 ml-auto items-end">
+              <div className="flex items-center gap-6 text-sm">
+                <span className="text-gray-400">Total: <span className="font-mono font-bold text-white">{(betAmount * numberOfRooms).toFixed(3)} MNT</span></span>
+                <span className="text-gray-400">Balance: <span className="font-mono font-bold text-primary">{balance.toFixed(3)} MNT</span></span>
+              </div>
+              <button
+                onClick={handleCreateRooms}
+                disabled={!canPlaceBet || !isConnected || !walletConnected || isPlacing}
+                className={`px-16 py-4 rounded-lg font-bold text-lg transition-all ${
+                  canPlaceBet && isConnected && walletConnected && !isPlacing
+                    ? 'bg-gradient-to-br from-[#9B61DB] to-[#7457CC] text-white hover:opacity-90 active:scale-95'
+                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {isPlacing ? 'Creating...' : 'Create'}
+              </button>
+            </div>
+          </div>
+
+          {/* Warning if insufficient balance */}
+          {!canPlaceBet && (
+            <div className="mt-3 p-2 bg-red-500/10 border border-red-500/30 rounded text-sm text-red-400">
+              Insufficient balance. Total bet ({(betAmount * numberOfRooms).toFixed(3)} MNT) exceeds balance.
             </div>
           )}
         </div>

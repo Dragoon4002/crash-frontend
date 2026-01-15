@@ -19,13 +19,13 @@ export function TradingChart() {
   const gameEnded = status === 'crashed' || rugged;
 
   return (
-    <Card className="bg-[#14141f] border-white/5 p-0 overflow-hidden">
+    <Card className="bg-sidebar border-border p-0 overflow-hidden">
       {/* Stats Bar */}
-      <div className="flex items-center gap-6 px-4 py-2.5 border-b border-white/5">
+      <div className="flex items-center gap-6 px-4 py-2.5 border-b border-border">
       </div>
 
       {/* Chart Area */}
-      <div className="relative h-80 bg-[#0a0a0f]/30">
+      <div className="relative h-80 bg-transparent/30">
         {/* Game Status Overlay */}
         {status === 'countdown' && (
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 text-center">
@@ -51,7 +51,7 @@ export function TradingChart() {
 
         {/* Game ID Badge */}
         {gameId && (
-          <div className="absolute top-4 left-4 bg-[#14141f]/90 px-3 py-1.5 rounded-lg border border-white/10">
+          <div className="absolute top-4 left-4 bg-sidebar/90 px-3 py-1.5 rounded-lg border border-white/10">
             <span className="text-xs text-gray-400">Game: </span>
             <span className="text-xs text-blue-400 font-mono">{gameId.slice(-8)}</span>
           </div>

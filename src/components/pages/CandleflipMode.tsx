@@ -6,6 +6,7 @@ import { TrendType } from '@/types/candleflip';
 import { TrendingUp, TrendingDown, Plus, Minus } from 'lucide-react';
 import { useWebSocket } from '@/contexts/WebSocketContext';
 import { useGameHouseContract } from '@/hooks/useGameHouseContract';
+import { showGlobalToast } from '@/components/ui/Toast';
 
 interface ActiveBatch {
   batchId: string;
@@ -66,7 +67,7 @@ export function CandleflipMode() {
 
   const handleCreateRooms = async () => {
     if (!canPlaceBet || !isConnected || !walletConnected) {
-      alert('Please connect your wallet first!');
+      showGlobalToast('Please connect your wallet first!', 'error');
       return;
     }
 
@@ -76,7 +77,7 @@ export function CandleflipMode() {
       // Get player's wallet address
       const playerAddress = await getWalletAddress();
       if (!playerAddress) {
-        alert('Failed to get wallet address. Please reconnect your wallet.');
+        showGlobalToast('Failed to get wallet address. Please reconnect your wallet.', 'error');
         setIsPlacing(false);
         return;
       }
@@ -124,7 +125,7 @@ export function CandleflipMode() {
               console.log(`✅ Batch created: ${msg.batchId} with ${numberOfRooms} rooms`);
             } else if (msg.type === 'error') {
               console.error('❌ Batch creation error:', msg.error);
-              alert(`Failed to create batch: ${msg.error}`);
+              showGlobalToast(`Failed to create batch: ${msg.error}`, 'error');
             }
           } catch (err) {
             console.error('Failed to parse message:', err);
@@ -139,11 +140,11 @@ export function CandleflipMode() {
           console.log('🔌 Batch creation WebSocket closed');
         };
       } else {
-        alert(`Failed to place bet: ${result.error}`);
+        showGlobalToast(`Failed to place bet: ${result.error}`, 'error');
       }
     } catch (error) {
       console.error('Error placing bet:', error);
-      alert('Failed to place bet!');
+      showGlobalToast('Failed to place bet!', 'error');
     } finally {
       setIsPlacing(false);
     }
@@ -242,7 +243,7 @@ export function CandleflipMode() {
                   }}
                   className="w-20 px-3 py-2 bg-background border border-border rounded-lg text-center text-white font-mono focus:outline-none focus:border-primary"
                 />
-                <span className="text-gray-400 text-sm">MNT</span>
+                <span className="text-gray-400 text-sm">XLM</span>
                 <button
                   onClick={() => setBetAmount(parseFloat((betAmount + 0.01).toFixed(2)))}
                   className="w-14 py-2 bg-gradient-to-br from-[#9B61DB] to-[#7457CC] rounded-lg text-sm text-white font-medium hover:opacity-90 transition-all active:scale-95"
@@ -345,8 +346,8 @@ export function CandleflipMode() {
             {/* Right: Create Button & Info */}
             <div className="flex flex-col gap-3 ml-auto items-end">
               <div className="flex items-center gap-6 text-sm">
-                <span className="text-gray-400">Total: <span className="font-mono font-bold text-white">{(betAmount * numberOfRooms).toFixed(3)} MNT</span></span>
-                <span className="text-gray-400">Balance: <span className="font-mono font-bold text-primary">{balance.toFixed(3)} MNT</span></span>
+                <span className="text-gray-400">Total: <span className="font-mono font-bold text-white">{(betAmount * numberOfRooms).toFixed(3)} XLM</span></span>
+                <span className="text-gray-400">Balance: <span className="font-mono font-bold text-primary">{balance.toFixed(3)} XLM</span></span>
               </div>
               <button
                 onClick={handleCreateRooms}
@@ -365,7 +366,7 @@ export function CandleflipMode() {
           {/* Warning if insufficient balance */}
           {!canPlaceBet && (
             <div className="mt-3 p-2 bg-red-500/10 border border-red-500/30 rounded text-sm text-red-400">
-              Insufficient balance. Total bet ({(betAmount * numberOfRooms).toFixed(3)} MNT) exceeds balance.
+              Insufficient balance. Total bet ({(betAmount * numberOfRooms).toFixed(3)} XLM) exceeds balance.
             </div>
           )}
         </div>

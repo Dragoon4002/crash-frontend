@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useWebSocket } from '@/contexts/WebSocketContext';
-import { usePrivy } from '@privy-io/react-auth';
+import { useWallet } from '@/contexts/WalletContext';
 import { Send, Wifi, WifiOff } from 'lucide-react';
 
 const formatRelativeTime = (ts: string | number | Date | undefined | null) => {
@@ -54,11 +54,9 @@ const formatAddress = (addr: string) =>
 
 export function ServerChat() {
   const { chatMessages, isConnected, connectedUsers, sendChatMessage, subscribe, unsubscribe } = useWebSocket();
-  const { user } = usePrivy();
+  const { walletAddress } = useWallet();
   const [inputMessage, setInputMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const walletAddress = user?.wallet?.address || '';
 
   useEffect(() => {
     subscribe('chat');
@@ -75,7 +73,7 @@ export function ServerChat() {
 
   const handleSend = () => {
     if (inputMessage.trim()) {
-      sendChatMessage(inputMessage, walletAddress);
+      sendChatMessage(inputMessage, walletAddress || '');
       setInputMessage('');
     }
   };

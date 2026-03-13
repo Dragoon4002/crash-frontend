@@ -35,6 +35,8 @@ export function CandlestickChartCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number | null>(null);
   const [yRange, setYRange] = useState<{ min: number; max: number }>({ min: 0.75, max: 1.25 });
+  const yRangeRef = useRef(yRange);
+  yRangeRef.current = yRange;
   const [rugAnimationProgress, setRugAnimationProgress] = useState(0); // 0 to 1
   const rugAnimationStartTime = useRef<number | null>(null);
   const previousStatusRef = useRef<string | undefined>(status);
@@ -134,8 +136,8 @@ export function CandlestickChartCanvas({
     });
 
     // Check if we need to expand range (within 15% of edge)
-    const currentMin = yRange.min;
-    const currentMax = yRange.max;
+    const currentMin = yRangeRef.current.min;
+    const currentMax = yRangeRef.current.max;
     const range = currentMax - currentMin;
     const threshold = range * 0.15;
 
@@ -158,7 +160,8 @@ export function CandlestickChartCanvas({
     if (needsUpdate) {
       setYRange({ min: newMin, max: newMax });
     }
-  }, [currentPrice, previousCandles, currentCandle, isHistoryMode, status, yRange]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPrice, previousCandles, currentCandle, isHistoryMode, status]);
 
   // Rendering
   useEffect(() => {

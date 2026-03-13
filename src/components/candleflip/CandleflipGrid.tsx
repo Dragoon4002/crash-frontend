@@ -33,7 +33,7 @@ export function CandleflipGrid() {
             <span className="text-sm text-white font-medium">{game.player1.username}</span>
           </div>
           <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-            +{game.player1.bet.toFixed(3)} MNT
+            +{game.player1.bet.toFixed(3)} XLM
           </Badge>
         </div>
 
@@ -47,7 +47,7 @@ export function CandleflipGrid() {
             <div className="text-gray-400 text-sm">VS</div>
           )}
           <div className="text-2xl font-black text-white mt-1">
-            +{game.prize.toFixed(3)} MNT
+            +{game.prize.toFixed(3)} XLM
           </div>
           <div className="text-xs text-gray-400">Prize Pool</div>
         </div>
@@ -61,7 +61,7 @@ export function CandleflipGrid() {
             <span className="text-sm text-white font-medium">{game.player2.username}</span>
           </div>
           <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs">
-            +{game.player2.bet.toFixed(3)} MNT
+            +{game.player2.bet.toFixed(3)} XLM
           </Badge>
         </div>
 

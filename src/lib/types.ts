@@ -1,4 +1,4 @@
-export type GameMode = 'standard' | 'candleflip' | 'battles';
+export type GameMode = 'standard' | 'candleflip' | 'battles' | 'keno';
 
 export interface Trader {
   id: string;

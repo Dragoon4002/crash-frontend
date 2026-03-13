@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useGameHouseContract } from '@/hooks/useGameHouseContract';
 import { useWebSocket } from '@/contexts/WebSocketContext';
-import { ethers } from 'ethers';
+import { showGlobalToast } from '@/components/ui/Toast';
 
 interface TradingPanelProps {
   gameId: string | null;
@@ -79,7 +79,7 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
       // Get wallet address
       const playerAddress = await getWalletAddress();
       if (!playerAddress) {
-        alert('Failed to get wallet address. Please reconnect your wallet.');
+        showGlobalToast('Failed to get wallet address. Please reconnect your wallet.', 'error');
         setIsProcessing(false);
         return;
       }
@@ -89,7 +89,7 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
       const betResult = await bet(betAmount);
 
       if (!betResult.success) {
-        alert(`Bet failed: ${betResult.error}`);
+        showGlobalToast(`Bet failed: ${betResult.error}`, 'error');
         setIsProcessing(false);
         return;
       }
@@ -110,10 +110,10 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
         transactionHash: betResult.transactionHash,
       });
 
-      console.log(`✅ Bet placed at ${currentMultiplier.toFixed(2)}x with ${betAmount} MNT`);
+      console.log(`✅ Bet placed at ${currentMultiplier.toFixed(2)}x with ${betAmount} XLM`);
     } catch (error: any) {
       console.error('Buy-in error:', error);
-      alert(`Failed to place bet: ${error.message || 'Unknown error'}`);
+      showGlobalToast(`Failed to place bet: ${error.message || 'Unknown error'}`, 'error');
       setHasBet(false);
       setEntryMultiplier(0);
     } finally {
@@ -136,7 +136,7 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
       // Get wallet address
       const playerAddress = await getWalletAddress();
       if (!playerAddress) {
-        alert('Failed to get wallet address.');
+        showGlobalToast('Failed to get wallet address.', 'error');
         setIsProcessing(false);
         return;
       }
@@ -159,7 +159,7 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
       setEntryMultiplier(0);
     } catch (error: any) {
       console.error('Cash-out error:', error);
-      alert(`Failed to cash out: ${error.message || 'Unknown error'}`);
+      showGlobalToast(`Failed to cash out: ${error.message || 'Unknown error'}`, 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -173,18 +173,18 @@ export function TradingPanel({ gameId, currentMultiplier, status, isRugged = fal
   const canCashOut = status === 'running' && hasBet && !isProcessing && isConnected && !isRugged;
 
   // Debug logging
-  console.log('TradingPanel Debug:', {
-    status,
-    hasBet,
-    isProcessing,
-    isConnected,
-    betAmount,
-    isRugged,
-    canBuyIn,
-    canCashOut,
-    currentMultiplier,
-    gameId
-  });
+  // console.log('TradingPanel Debug:', {
+  //   status,
+  //   hasBet,
+  //   isProcessing,
+  //   isConnected,
+  //   betAmount,
+  //   isRugged,
+  //   canBuyIn,
+  //   canCashOut,
+  //   currentMultiplier,
+  //   gameId
+  // });
 
   return (
     <div className="rounded-lg p-4 bg-sidebar border border-border">

@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
+import { useWallet } from '@/contexts/WalletContext';
 import { Button } from '@/components/ui/button';
-import { Flame, Gift, Swords, Wallet, Trophy } from 'lucide-react';
+import { Flame, Gift, Swords, Wallet, Trophy, Cuboid } from 'lucide-react';
 import { GameMode } from '@/lib/types';
 import Link from 'next/link';
 
@@ -15,11 +15,12 @@ interface HeaderProps {
 const NAV_ITEMS = [
   { id: 'standard', label: 'Crash', icon: Flame },
   { id: 'candleflip', label: 'CandleFlip', icon: Gift },
-  { id: 'battles', label: 'Battle', icon: Swords },
+  // { id: 'battles', label: 'Battle', icon: Swords },
+  { id: 'keno', label: 'Keno', icon: Cuboid },
 ] as const;
 
 export function NewHeader({ currentMode, onModeChange }: HeaderProps) {
-  const { ready, authenticated, user, login, logout } = usePrivy();
+  const { walletAddress, isConnecting, connectWallet, disconnectWallet } = useWallet();
   const [indicatorStyle, setIndicatorStyle] = useState({ left: 0, width: 0 });
   const navRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -44,8 +45,6 @@ export function NewHeader({ currentMode, onModeChange }: HeaderProps) {
     if (!address) return '';
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
-
-  const walletAddress = user?.wallet?.address;
 
   return (
     <header className="sticky top-0 z-50 border-border w-full h-15 backdrop-blur bg-sidebar/95">
@@ -99,18 +98,18 @@ export function NewHeader({ currentMode, onModeChange }: HeaderProps) {
           </Link>
 
           {/* Connect/Wallet Button */}
-          {ready && authenticated ? (
+          {walletAddress ? (
             <div className="flex items-center gap-2">
               <div className="bg-sidebar border border-border px-3 py-1.5 rounded-lg">
                 <div className="flex items-center gap-2">
                   <Wallet className="h-3.5 w-3.5 text-green-400" />
                   <span className="text-xs font-mono text-white">
-                    {walletAddress ? getShortAddress(walletAddress) : 'Connected'}
+                    {getShortAddress(walletAddress)}
                   </span>
                 </div>
               </div>
               <Button
-                onClick={logout}
+                onClick={disconnectWallet}
                 variant="outline"
                 className="h-9 text-xs px-4 border-white/10 hover:bg-white/5 text-white"
               >
@@ -119,12 +118,12 @@ export function NewHeader({ currentMode, onModeChange }: HeaderProps) {
             </div>
           ) : (
             <Button
-              onClick={login}
-              disabled={!ready}
+              onClick={connectWallet}
+              disabled={isConnecting}
               className="bg-gradient-to-br from-[#9B61DB] to-[#7457CC] hover:opacity-90 text-white font-bold px-5 h-9 text-xs rounded-full flex items-center gap-2"
             >
               <Wallet className="h-4 w-4" />
-              {ready ? 'Connect Wallet' : 'Loading...'}
+              {isConnecting ? 'Connecting...' : 'Connect Wallet'}
             </Button>
           )}
         </div>

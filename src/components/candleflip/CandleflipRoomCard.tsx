@@ -6,6 +6,7 @@ import { CandleflipCanvas } from './CandleflipCanvas';
 import { TrendType } from '@/types/candleflip';
 import { Shield } from 'lucide-react';
 import { getBotForRoom } from '@/utils/botNames';
+import { showGlobalToast } from '@/components/ui/Toast';
 
 interface CandleflipRoomCardProps {
   batchId: string;
@@ -26,9 +27,26 @@ export function CandleflipRoomCard({ batchId, roomNumber, betAmount, trend, onVe
   // Use batchId as userId placeholder
   const userId = `User-${batchId.slice(0, 12)}`;
 
-  // Auto-delete room after game finishes (with delay to show result)
+  // Show toast and auto-delete room after game finishes
   useEffect(() => {
     if (gameState.status === 'finished') {
+      const won = (trend === 'bullish' && gameState.winner === 'GREEN') ||
+                  (trend === 'bearish' && gameState.winner === 'RED');
+      const payout = won ? betAmount * 2 : 0;
+
+      if (won) {
+        showGlobalToast(
+          `Room #${roomNumber}: Won +${payout.toFixed(4)} XLM`,
+          'success',
+          payout
+        );
+      } else {
+        showGlobalToast(
+          `Room #${roomNumber}: Lost -${betAmount.toFixed(4)} XLM`,
+          'error'
+        );
+      }
+
       // Wait 5 seconds to show the result, then remove the room
       const timer = setTimeout(() => {
         onFinished();
@@ -36,13 +54,13 @@ export function CandleflipRoomCard({ batchId, roomNumber, betAmount, trend, onVe
 
       return () => clearTimeout(timer);
     }
-  }, [gameState.status, onFinished]);
+  }, [gameState.status, onFinished, gameState.winner, trend, betAmount, roomNumber]);
 
   const handleVerify = () => {
     if (gameState.gameId && gameState.serverSeed && onVerify) {
       onVerify(gameState.gameId, gameState.serverSeed);
     } else if (!gameState.serverSeed) {
-      alert('Game has not ended yet. Please wait for the results.');
+      showGlobalToast('Game has not ended yet. Please wait for the results.', 'info');
     }
   };
 
@@ -87,7 +105,7 @@ export function CandleflipRoomCard({ batchId, roomNumber, betAmount, trend, onVe
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs">BULLISH</span>
-          {trend === 'bullish' && <span className="text-xs">({betAmount} MNT)</span>}
+          {trend === 'bullish' && <span className="text-xs">({betAmount} XLM)</span>}
         </div>
       </div>
 
@@ -111,7 +129,7 @@ export function CandleflipRoomCard({ batchId, roomNumber, betAmount, trend, onVe
                 {result.won ? 'YOU WON!' : 'YOU LOST'}
               </div>
               <div className="text-2xl text-white font-mono">
-                {result.won ? `+${result.payout} MNT` : `-${betAmount} MNT`}
+                {result.won ? `+${result.payout} XLM` : `-${betAmount} XLM`}
               </div>
             </div>
           </div>
@@ -132,7 +150,7 @@ export function CandleflipRoomCard({ batchId, roomNumber, betAmount, trend, onVe
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs">BEARISH</span>
-          {trend === 'bearish' && <span className="text-xs">({betAmount} MNT)</span>}
+          {trend === 'bearish' && <span className="text-xs">({betAmount} XLM)</span>}
         </div>
       </div>
 

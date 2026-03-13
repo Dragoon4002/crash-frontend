@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useGameHouseContract } from '@/hooks/useGameHouseContract';
 import { API_ENDPOINTS } from '@/config/api';
-import { ethers } from 'ethers';
+import { stroopsToXlm } from '@/lib/stellar';
+import { showGlobalToast } from '@/components/ui/Toast';
 
 interface CrashBettingUIProps {
   gameId: string | null;
@@ -27,7 +28,7 @@ export function CrashBettingUI({ gameId, currentMultiplier, status }: CrashBetti
 
   const handleBuyIn = async () => {
     if (!gameId || !isConnected) {
-      alert('Wallet not connected or game not started!');
+      showGlobalToast('Wallet not connected or game not started!', 'error');
       return;
     }
 
@@ -40,13 +41,13 @@ export function CrashBettingUI({ gameId, currentMultiplier, status }: CrashBetti
         console.log('✅ Buy-in successful! TX:', result.transactionHash);
         setHasBet(true);
         setEntryMultiplier(currentMultiplier);
-        alert(`Buy-in successful!\nTX: ${result.transactionHash}\nEntry: ${currentMultiplier.toFixed(2)}x`);
+        showGlobalToast(`Buy-in successful at ${currentMultiplier.toFixed(2)}x`, 'success');
       } else {
-        alert(`Buy-in failed: ${result.error}`);
+        showGlobalToast(`Buy-in failed: ${result.error}`, 'error');
       }
     } catch (error) {
       console.error('Buy-in error:', error);
-      alert('Buy-in failed!');
+      showGlobalToast('Buy-in failed!', 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -61,7 +62,7 @@ export function CrashBettingUI({ gameId, currentMultiplier, status }: CrashBetti
       // Get user's wallet address
       const userAddress = await getWalletAddress();
       if (!userAddress) {
-        alert('Wallet not connected!');
+        showGlobalToast('Wallet not connected!', 'error');
         setIsProcessing(false);
         return;
       }
@@ -80,16 +81,16 @@ export function CrashBettingUI({ gameId, currentMultiplier, status }: CrashBetti
       const result = await response.json();
 
       if (result.success && result.payout) {
-        const payoutMNT = ethers.formatEther(result.payout);
-        console.log('✅ Cashed out! Payout:', payoutMNT, 'MNT');
+        const payoutXlm = stroopsToXlm(result.payout);
+        console.log('✅ Cashed out! Payout:', payoutXlm, 'XLM');
         setHasBet(false);
-        alert(`Cashed out!\nPayout: ${payoutMNT} MNT\nMultiplier: ${currentMultiplier.toFixed(2)}x\nTX: ${result.txHash}`);
+        showGlobalToast(`Cashed out at ${currentMultiplier.toFixed(2)}x`, 'success', parseFloat(payoutXlm));
       } else {
-        alert(`Cash-out failed: ${result.error || 'Unknown error'}`);
+        showGlobalToast(`Cash-out failed: ${result.error || 'Unknown error'}`, 'error');
       }
     } catch (error) {
       console.error('Cash-out error:', error);
-      alert('Cash-out failed!');
+      showGlobalToast('Cash-out failed!', 'error');
     } finally {
       setIsProcessing(false);
     }
@@ -102,7 +103,7 @@ export function CrashBettingUI({ gameId, currentMultiplier, status }: CrashBetti
     <div className="absolute bottom-8 right-8 z-10 flex flex-col gap-3">
       {/* Bet Amount Input */}
       <div className="bg-sidebar border border-border rounded-lg p-4">
-        <label className="block text-xs text-gray-400 mb-2">Bet Amount (MNT)</label>
+        <label className="block text-xs text-gray-400 mb-2">Bet Amount (XLM)</label>
         <input
           type="number"
           value={betAmount}

@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Avatar } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Trophy, Crown, Loader2, Medal } from 'lucide-react';
-import { usePrivy } from '@privy-io/react-auth';
+import { useWallet } from '@/contexts/WalletContext';
 
 interface LeaderboardEntry {
   rank: number;
@@ -26,8 +26,7 @@ function truncateAddress(address: string): string {
 }
 
 export function Leaderboard() {
-  const { user } = usePrivy();
-  const walletAddress = user?.wallet?.address;
+  const { walletAddress } = useWallet();
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [userPosition, setUserPosition] = useState<LeaderboardEntry | null>(null);
@@ -126,7 +125,7 @@ export function Leaderboard() {
             <div className="flex flex-col items-center mb-2">
               <Medal className="h-5 w-5 text-gray-300 mb-1" />
               <span className="text-gray-300 text-sm font-mono">{truncateAddress(topThree[1].walletAddress)}</span>
-              <span className="text-gray-200 text-lg font-bold">{topThree[1].pnl.toFixed(3)} MNT</span>
+              <span className="text-gray-200 text-lg font-bold">{topThree[1].pnl.toFixed(3)} XLM</span>
             </div>
             {/* Podium */}
             <div className="w-28 h-24 rounded-2xl flex items-center justify-center bg-gradient-to-b from-gray-400 to-gray-500 border-2 border-gray-300/50">
@@ -140,7 +139,7 @@ export function Leaderboard() {
             <div className="flex flex-col items-center mb-2">
               <Crown className="h-6 w-6 text-yellow-400 mb-1 rotate-[-15deg]" fill="currentColor" />
               <span className="text-yellow-400 text-sm font-mono">{truncateAddress(topThree[0].walletAddress)}</span>
-              <span className="text-yellow-300 text-xl font-bold">{topThree[0].pnl.toFixed(3)} MNT</span>
+              <span className="text-yellow-300 text-xl font-bold">{topThree[0].pnl.toFixed(3)} XLM</span>
             </div>
             {/* Podium */}
             <div className="w-32 h-36 rounded-2xl flex items-center justify-center bg-gradient-to-b from-yellow-400 to-orange-500 border-2 border-yellow-300/50 shadow-lg shadow-yellow-500/30">
@@ -154,7 +153,7 @@ export function Leaderboard() {
             <div className="flex flex-col items-center mb-2">
               <Medal className="h-5 w-5 text-orange-400 mb-1"/>
               <span className="text-orange-400 text-sm font-mono">{truncateAddress(topThree[2].walletAddress)}</span>
-              <span className="text-orange-300 text-lg font-bold">{topThree[2].pnl.toFixed(3)} MNT</span> 
+              <span className="text-orange-300 text-lg font-bold">{topThree[2].pnl.toFixed(3)} XLM</span> 
             </div>
             {/* Podium */}
             <div className="w-28 h-20 rounded-2xl flex items-center justify-center bg-gradient-to-b from-orange-400 to-orange-600 border-2 border-orange-300/50">
@@ -192,7 +191,7 @@ export function Leaderboard() {
                     </div>
                   </TableCell>
                   <TableCell className={`text-right font-mono font-medium ${entry.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                    {formatPnl(entry.pnl)} MNT
+                    {formatPnl(entry.pnl)} XLM
                   </TableCell>
                 </TableRow>
               ))}

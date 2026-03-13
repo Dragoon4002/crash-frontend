@@ -1,0 +1,1 @@
+/home/sounak/programming/silonelabs/rugs/v2/crash-frontend/contracts/crash-house/target/wasm32v1-none/release/crash_house.wasm: /home/sounak/programming/silonelabs/rugs/v2/crash-frontend/contracts/crash-house/src/lib.rs

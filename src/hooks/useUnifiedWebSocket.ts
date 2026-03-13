@@ -151,10 +151,10 @@ export function useUnifiedWebSocket(wsUrl: string) {
           case 'crash_cashout_result':
             // Show toast notification
             const payoutAmount = message.payoutAmount || 0;
-            console.log(`💰 Cashout successful! Received ${payoutAmount.toFixed(4)} MNT`);
+            console.log(`💰 Cashout successful! Received ${payoutAmount.toFixed(4)} XLM`);
 
             showGlobalToast(
-              `You have received ${payoutAmount.toFixed(4)} MNT in your wallet`,
+              `You have received ${payoutAmount.toFixed(4)} XLM in your wallet`,
               'success',
               payoutAmount
             );

@@ -1,6 +1,7 @@
 'use client';
 
-import { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface Toast {
   id: string;
@@ -9,51 +10,43 @@ interface Toast {
   amount?: number;
 }
 
-interface ToastContextType {
-  showToast: (message: string, type?: 'success' | 'error' | 'info', amount?: number) => void;
-}
-
-const ToastContext = createContext<ToastContextType | undefined>(undefined);
-
-// Global ref for toast function
-const toastRef: { current: ((message: string, type?: 'success' | 'error' | 'info', amount?: number) => void) | null } = { current: null };
-
+// --- Public API: call from anywhere ---
 export function showGlobalToast(message: string, type: 'success' | 'error' | 'info' = 'success', amount?: number) {
-  if (toastRef.current) {
-    toastRef.current(message, type, amount);
-  }
+  console.log('[Toast] showGlobalToast called:', { message, type, amount, hasWindow: typeof window !== 'undefined' });
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('__toast', { detail: { message, type, amount } }));
+  console.log('[Toast] CustomEvent dispatched');
 }
 
-export function useToast() {
-  const context = useContext(ToastContext);
-  if (!context) {
-    throw new Error('useToast must be used within ToastProvider');
-  }
-  return context;
-}
-
-export function ToastProvider({ children }: { children: ReactNode }) {
+// --- Standalone component: mount once in layout ---
+export function ToastContainer() {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [mounted, setMounted] = useState(false);
 
-  const addToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success', amount?: number) => {
-    const id = Date.now().toString();
-    setToasts(prev => [...prev, { id, message, type, amount }]);
-
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 5000);
+  useEffect(() => {
+    console.log('[Toast] ToastContainer mounted');
+    setMounted(true);
   }, []);
 
-  // Use ref to avoid dependency issues
-  const addToastRef = useRef(addToast);
-  addToastRef.current = addToast;
-
-  // Register global toast function once on mount
   useEffect(() => {
-    toastRef.current = (message, type, amount) => addToastRef.current(message, type, amount);
+    console.log('[Toast] Registering event listener on window');
+    const handler = (e: Event) => {
+      const { message, type, amount } = (e as CustomEvent).detail;
+      console.log('[Toast] Event received:', { message, type, amount });
+      const id = Date.now().toString() + Math.random().toString(36).slice(2);
+      setToasts(prev => {
+        const next = [...prev, { id, message, type, amount }];
+        console.log('[Toast] Toasts state updated, count:', next.length);
+        return next;
+      });
+      setTimeout(() => {
+        setToasts(prev => prev.filter(t => t.id !== id));
+      }, 5000);
+    };
+    window.addEventListener('__toast', handler);
     return () => {
-      toastRef.current = null;
+      console.log('[Toast] Removing event listener');
+      window.removeEventListener('__toast', handler);
     };
   }, []);
 
@@ -61,36 +54,40 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  return (
-    <ToastContext.Provider value={{ showToast: addToast }}>
-      {children}
-      <ToastContainer toasts={toasts} onRemove={removeToast} />
-    </ToastContext.Provider>
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed top-4 right-4 z-100 flex flex-col gap-3 pointer-events-none">
+      {toasts.map((toast) => (
+        <ToastItem key={toast.id} toast={toast} onRemove={removeToast} />
+      ))}
+    </div>,
+    document.body
   );
 }
 
-function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: string) => void }) {
+// Keep backward compat — ToastProvider just passes children through + renders container
+export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fixed top-4 right-4 z-50 flex flex-col gap-3 pointer-events-none">
-      {toasts.map((toast) => (
-        <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
-      ))}
-    </div>
+    <>
+      {children}
+      <ToastContainer />
+    </>
   );
 }
+
+const toastStyles = {
+  success: 'bg-gradient-to-br from-[#9B61DB] to-[#7457CC]',
+  error: 'bg-gradient-to-br from-red-500 to-red-700',
+  info: 'bg-gradient-to-br from-blue-500 to-blue-700',
+} as const;
 
 function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) => void }) {
-  const bgColor = toast.type === 'success'
-    ? 'from-[#9B61DB] to-[#7457CC]'
-    : toast.type === 'error'
-    ? 'from-red-500 to-red-700'
-    : 'from-blue-500 to-blue-700';
-
   return (
     <div
       className={`
         pointer-events-auto cursor-pointer
-        bg-gradient-to-br ${bgColor}
+        ${toastStyles[toast.type]}
         text-white px-5 py-4 rounded-xl shadow-2xl
         min-w-[300px] max-w-[400px]
         animate-slide-in
@@ -119,7 +116,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
           <p className="font-semibold text-sm">{toast.message}</p>
           {toast.amount !== undefined && (
             <p className="text-white/80 text-xs mt-1">
-              +{toast.amount.toFixed(4)} MNT
+              +{toast.amount.toFixed(4)} XLM
             </p>
           )}
         </div>

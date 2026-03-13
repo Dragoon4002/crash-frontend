@@ -4,6 +4,7 @@ import { NewHeader } from "@/components/newUI/newHeader"
 import { NewStandardMode } from "@/components/newUI/newStandard"
 import { BattlesMode } from "@/components/pages/BattlesMode"
 import { CandleflipMode } from "@/components/pages/CandleflipMode"
+import Keno from "@/components/pages/Keno"
 import { GameMode } from "@/lib/types"
 import { useState } from "react"
 
@@ -18,6 +19,8 @@ const page = () => {
         return <CandleflipMode />;
       case 'battles':
         return <BattlesMode />;
+      case 'keno':
+        return <Keno />;
       default:
         return <NewStandardMode />;
     }

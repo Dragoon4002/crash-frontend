@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { CandleflipGameState, GameStatus } from '@/types/candleflip';
+import { showGlobalToast } from '@/components/ui/Toast';
 
 interface BatchStartData {
   batchId: string;
@@ -195,6 +196,7 @@ export function useCandleflipRoom(wsUrl: string, batchId: string, roomNumber: nu
             const payoutFailedData = message.data as PayoutFailedData;
             if (payoutFailedData.batchId === batchId) {
               console.error('❌ Payout failed:', payoutFailedData.error);
+              showGlobalToast(`Payout failed: ${payoutFailedData.error}`, 'error');
             }
             break;
 

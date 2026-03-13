@@ -65,7 +65,7 @@ function BettorRow({ bettor, currentMultiplier }: { bettor: ActiveBettor; curren
       </div>
 
       {/* Bet Amount */}
-      <span className="text-sm text-gray-300">{bettor.betAmount.toFixed(4)} MNT</span>
+      <span className="text-sm text-gray-300">{bettor.betAmount.toFixed(4)} XLM</span>
 
       {/* Entry */}
       <div className="text-sm">
@@ -82,7 +82,7 @@ function BettorRow({ bettor, currentMultiplier }: { bettor: ActiveBettor; curren
           const isPositive = pnl >= 0;
           return (
             <span className={`text-xs ml-1 ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
-              {isPositive ? '+' : ''}{pnl.toFixed(4)} MNT
+              {isPositive ? '+' : ''}{pnl.toFixed(4)} XLM
             </span>
           );
         })()}

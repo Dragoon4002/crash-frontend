@@ -150,18 +150,21 @@ export function useAdvancedCrashGame(): UseAdvancedCrashGameReturn {
     }
   }, [currentCrashGame]);
 
-  // Smooth interpolation loop
+  // Smooth interpolation loop — use ref for targetValue to avoid re-creating interval on every WS tick
+  const targetValueRef = useRef(targetValue);
+  targetValueRef.current = targetValue;
+
   useEffect(() => {
     if (status !== 'running') return;
 
     interpolationIntervalRef.current = setInterval(() => {
       setCurrentValue((current) => {
-        const delta = (targetValue - current) / 10;
+        const target = targetValueRef.current;
+        const delta = (target - current) / 10;
         const newValue = current + delta;
 
-        // Stop condition
-        if (Math.abs(newValue - targetValue) < 0.0001) {
-          return targetValue;
+        if (Math.abs(newValue - target) < 0.0001) {
+          return target;
         }
 
         return newValue;
@@ -173,7 +176,7 @@ export function useAdvancedCrashGame(): UseAdvancedCrashGameReturn {
         clearInterval(interpolationIntervalRef.current);
       }
     };
-  }, [status, targetValue]);
+  }, [status]);
 
   const reconnect = () => {
     // Reconnect logic handled by useUnifiedWebSocket
